@@ -1,0 +1,7 @@
+rules:
+  pass:
+    - api/v2/barong/public
+    - api/v2/barong/identity
+  block:
+    - api/v2/barong/management
+

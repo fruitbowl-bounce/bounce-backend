@@ -1,0 +1,63 @@
+events:
+  - name: Email Confirmation
+    key: user.email.confirmation.token
+    templates:
+      en:
+        subject: Registration Confirmation
+        template_path: email_confirmation.en.html
+      ru:
+        subject: Подтверждение Регистрации
+        template_path: email_confirmation.ru.html
+
+  - name: Password Reset
+    key: user.password.reset.token
+    templates:
+      en:
+        subject: Password Reset
+        template_path: password_reset.en.html
+      ru:
+        subject: Сброс Пароля
+        template_path: password_reset.ru.html
+
+  - name: Label Created
+    key: label.created
+    templates:
+      en:
+        subject: Phone verified
+        template_path: label.en.html
+
+  - name: Label Updated
+    key: label.updated
+    templates:
+      en:
+        subject: Label Updated
+        template_path: label.en.html
+
+  - name: Session Create
+    key: session.create
+    templates:
+      en:
+        subject: New Login
+        template_path: session_create.en.html
+
+  - name: Deposit Accepted
+    key: deposit.updated
+    templates:
+      en:
+        subject: Deposit Accepted
+        template_path: deposit_accepted.en.html
+
+  - name: Withdrawal Succeed
+    key: withdraw.updated
+    templates:
+      en:
+        subject: Withdrawal Succeed
+        template_path: withdraw_succeed.en.html
+
+  - name: New Beneficiary
+    key: beneficiary.created
+    templates:
+      en:
+        subject: New Beneficiary
+        template_path: new_beneficiary.en.html
+

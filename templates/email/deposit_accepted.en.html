@@ -1,0 +1,63 @@
+<table role="presentation" border="0" cellpadding="0" cellspacing="0" class="body">
+  <tr>
+    <td>&nbsp;</td>
+    <td class="container">
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td>
+            {{#if logo}}
+            <img src="{{logo}}" alt="Company Logo" class="logo-img" />
+            {{/if}}
+          </td>
+        </tr>
+      </table>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td class="container">
+      <div class="content">
+        <table role="presentation" class="main">
+          <tr>
+            <td class="wrapper">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <br />
+                    <p style="margin-top: 18px"><b>Hello!</b></p>
+                    <p>
+                      Your deposit has been accepted.
+                    </p>
+                    {{#if record.amount}}
+                    <p>
+                      Amount: {{record.amount}} {{record.currency}}
+                    </p>
+                    {{/if}}
+                    {{#if record.txid}}
+                    <p>
+                      Transaction ID: {{record.txid}}
+                    </p>
+                    {{/if}}
+                    <br /><br />
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div class="footer">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+          <tr>
+            <td class="content-block">
+              <span>Company Inc, 3 Abbey Road, San Francisco CA 94102, USA</span>
+              <br><a href="http://opendax.io">opendax.io</a>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+
