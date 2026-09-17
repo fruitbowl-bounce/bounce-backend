@@ -113,9 +113,27 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 
+// MySQL's own container can briefly answer healthchecks while its
+// entrypoint is still swapping from the temporary init server to the real
+// one — a fresh `docker compose up`/reboot can still hit us before the DB
+// is truly ready. nodemon won't restart a crashed process on its own, so
+// retry instead of dying on the first failed connection.
+const connectWithRetry = async (attempts = 10, delayMs = 3000) => {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      await sequelize.authenticate();
+      return;
+    } catch (error) {
+      if (attempt === attempts) throw error;
+      logger.warn(`Database not ready yet (attempt ${attempt}/${attempts}), retrying in ${delayMs}ms:`, error.message);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+};
+
 const startServer = async () => {
   try {
-    await sequelize.authenticate();
+    await connectWithRetry();
     logger.info('Database connection established successfully');
 
     await initializeModels();
