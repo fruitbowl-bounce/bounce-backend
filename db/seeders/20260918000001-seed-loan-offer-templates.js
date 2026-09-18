@@ -49,7 +49,19 @@ module.exports = {
       },
     ].map((t) => ({ ...t, created_at: now, updated_at: now }));
 
-    await queryInterface.bulkInsert('loan_offer_templates', templates);
+    // Slug is unique, so re-running this (there's no seed-tracking table in
+    // this project — db:seed:all isn't guarded against re-runs) would throw
+    // on a duplicate key instead of no-op'ing. Only insert what's missing.
+    const [existing] = await queryInterface.sequelize.query(
+      'SELECT slug FROM loan_offer_templates WHERE slug IN (:slugs)',
+      { replacements: { slugs: templates.map((t) => t.slug) } }
+    );
+    const existingSlugs = new Set(existing.map((row) => row.slug));
+    const toInsert = templates.filter((t) => !existingSlugs.has(t.slug));
+
+    if (toInsert.length > 0) {
+      await queryInterface.bulkInsert('loan_offer_templates', toInsert);
+    }
   },
 
   async down(queryInterface) {
