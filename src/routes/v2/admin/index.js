@@ -6,6 +6,7 @@ const usersRouter = require('./users');
 const permissionsRouter = require('./permissions');
 const activitiesRouter = require('./activities');
 const applicationsRouter = require('./applications');
+const loanOfferTemplatesRouter = require('./loanOfferTemplates');
 
 router.use(adminAuth);
 
@@ -26,6 +27,7 @@ router.use('/users', usersRouter);
 router.use('/permissions', permissionsRouter);
 router.use('/activities', activitiesRouter);
 router.use('/applications', applicationsRouter);
+router.use('/loan-offer-templates', loanOfferTemplatesRouter);
 
 module.exports = router;
 

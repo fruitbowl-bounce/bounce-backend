@@ -14,6 +14,9 @@ router.use('/applications', applicationsRouter);
 const companiesHouseRouter = require('./companiesHouse');
 router.use('/companies-house', companiesHouseRouter);
 
+const loanOfferTemplatesRouter = require('./loanOfferTemplates');
+router.use('/loan-offer-templates', loanOfferTemplatesRouter);
+
 /**
  * @swagger
  * /api/v2/nebryx/public/ping:

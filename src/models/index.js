@@ -15,6 +15,7 @@ const Comment = require('./Comment');
 const FormSubmission = require('./FormSubmission');
 const FormSubmissionDirector = require('./FormSubmissionDirector');
 const FormSubmissionDocument = require('./FormSubmissionDocument');
+const LoanOfferTemplate = require('./LoanOfferTemplate');
 
 const initializeModels = async () => {
   User.hasMany(Profile, { foreignKey: 'user_id', as: 'profiles' });
@@ -60,6 +61,7 @@ const initializeModels = async () => {
     FormSubmission,
     FormSubmissionDirector,
     FormSubmissionDocument,
+    LoanOfferTemplate,
   };
 };
 
