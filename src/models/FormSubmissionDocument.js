@@ -31,6 +31,14 @@ const FormSubmissionDocument = sequelize.define('form_submission_documents', {
     type: DataTypes.BIGINT,
     allowNull: true,
   },
+  // Permanent, unguessable id used in the link we hand to Salesforce /
+  // outbound emails — never expires itself, the storage URL behind it is
+  // what gets refreshed on every click (see public/documentAccess.js).
+  public_token: {
+    type: DataTypes.STRING(64),
+    allowNull: true,
+    unique: true,
+  },
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,

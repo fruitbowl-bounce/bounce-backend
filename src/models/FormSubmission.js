@@ -17,13 +17,29 @@ const FormSubmission = sequelize.define('form_submissions', {
     allowNull: false,
     defaultValue: 'new',
   },
+  // How far through the 6-stage funnel this applicant has actually gotten —
+  // distinct from `status` above, which tracks Salesforce sync state, not
+  // funnel progress. Updated on every partial save.
+  funnel_stage: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 1,
+  },
+  // Long, unguessable — this is what "continue your application" links use.
+  // Deliberately separate from application_ref, which is short and shown to
+  // the applicant on-screen, so it isn't safe to treat as a secret.
+  resume_token: {
+    type: DataTypes.STRING(64),
+    allowNull: true,
+    unique: true,
+  },
   loan_amount: {
     type: DataTypes.DECIMAL(12, 2),
-    allowNull: false,
+    allowNull: true,
   },
   funding_purpose: {
     type: DataTypes.STRING(100),
-    allowNull: false,
+    allowNull: true,
   },
   email: {
     type: DataTypes.STRING(255),
@@ -36,27 +52,27 @@ const FormSubmission = sequelize.define('form_submissions', {
   },
   trading_time: {
     type: DataTypes.STRING(50),
-    allowNull: false,
+    allowNull: true,
   },
   turnover_range: {
     type: DataTypes.STRING(50),
-    allowNull: false,
+    allowNull: true,
   },
   director_name: {
     type: DataTypes.STRING(255),
-    allowNull: false,
+    allowNull: true,
   },
   home_address: {
     type: DataTypes.TEXT,
-    allowNull: false,
+    allowNull: true,
   },
   phone: {
     type: DataTypes.STRING(50),
-    allowNull: false,
+    allowNull: true,
   },
   owns_property: {
     type: DataTypes.BOOLEAN,
-    allowNull: false,
+    allowNull: true,
   },
   director_confirmed: {
     type: DataTypes.BOOLEAN,
@@ -69,7 +85,7 @@ const FormSubmission = sequelize.define('form_submissions', {
   },
   company_name: {
     type: DataTypes.STRING(255),
-    allowNull: false,
+    allowNull: true,
   },
   company_number: {
     type: DataTypes.STRING(50),
@@ -81,11 +97,11 @@ const FormSubmission = sequelize.define('form_submissions', {
   },
   offer_id: {
     type: DataTypes.STRING(50),
-    allowNull: false,
+    allowNull: true,
   },
   offer_name: {
     type: DataTypes.STRING(100),
-    allowNull: false,
+    allowNull: true,
   },
   offer_apr: {
     type: DataTypes.STRING(20),

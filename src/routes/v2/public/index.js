@@ -20,6 +20,9 @@ router.use('/loan-offer-templates', loanOfferTemplatesRouter);
 const placesRouter = require('./places');
 router.use('/places', placesRouter);
 
+const documentAccessRouter = require('./documentAccess');
+router.use('/documents', documentAccessRouter);
+
 /**
  * @swagger
  * /api/v2/nebryx/public/ping:

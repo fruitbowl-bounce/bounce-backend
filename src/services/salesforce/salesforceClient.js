@@ -31,11 +31,16 @@ const upsertSubmission = async (submission) => {
     response = await attempt(token);
   }
 
-  // 201 Created (new record, body has `id`) or 204 No Content (existing
-  // record updated, no body) are the two success outcomes.
-  if (response.status === 201) {
+  // 201 Created (new record) and 204 No Content (existing record updated,
+  // no body) are the documented outcomes, but Salesforce has also been
+  // observed returning 200 with a { id, success, errors } body for some
+  // updates — treat any 2xx with a JSON body the same way as 201.
+  if (response.status === 201 || response.status === 200) {
     const body = await response.json();
-    return body.id;
+    if (body.success === false) {
+      throw new Error(`Salesforce upsert failed: ${JSON.stringify(body.errors)}`);
+    }
+    return body.id || submission.salesforce_id || null;
   }
   if (response.status === 204) {
     return submission.salesforce_id || null;

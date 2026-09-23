@@ -1,6 +1,7 @@
 const { Queue, Worker } = require('bullmq');
 const logger = require('../../utils/logger');
 const FormSubmission = require('../../models/FormSubmission');
+const FormSubmissionDocument = require('../../models/FormSubmissionDocument');
 const { upsertSubmission } = require('./salesforceClient');
 
 let salesforceQueue = null;
@@ -56,7 +57,9 @@ const initializeWorker = () => {
     async (job) => {
       const { formSubmissionId } = job.data;
 
-      const submission = await FormSubmission.findByPk(formSubmissionId);
+      const submission = await FormSubmission.findByPk(formSubmissionId, {
+        include: [{ model: FormSubmissionDocument, as: 'documents' }],
+      });
       if (!submission) {
         logger.warn(`Salesforce sync job ${job.id}: form_submission ${formSubmissionId} no longer exists`);
         return { skipped: true };
