@@ -17,6 +17,7 @@ const FormSubmissionDirector = require('../../../models/FormSubmissionDirector')
 const FormSubmissionDocument = require('../../../models/FormSubmissionDocument');
 const storageService = require('../../../services/storage/storageService');
 const { enqueueSalesforceSync } = require('../../../services/salesforce/salesforceQueue');
+const { enqueueSendgridSync } = require('../../../services/sendgrid/sendgridQueue');
 const logger = require('../../../utils/logger');
 
 // Unauthenticated + writes to the DB, so it gets its own tighter limit on
@@ -247,6 +248,15 @@ router.put(
         await enqueueSalesforceSync(result.id);
       } catch (queueError) {
         logger.error('Failed to enqueue Salesforce sync job:', queueError);
+      }
+
+      // Keeps the applicant's SendGrid contact (email nurture / reminder
+      // journey) current the same way — same fire-and-forget, same
+      // idempotent upsert-by-email design.
+      try {
+        await enqueueSendgridSync(result.id);
+      } catch (queueError) {
+        logger.error('Failed to enqueue SendGrid sync job:', queueError);
       }
 
       return res.status(isNew ? 201 : 200).json({ applicationRef: result.application_ref });

@@ -12,8 +12,10 @@ const { Op } = require('sequelize');
 const FormSubmission = require('../../../models/FormSubmission');
 const FormSubmissionDirector = require('../../../models/FormSubmissionDirector');
 const FormSubmissionDocument = require('../../../models/FormSubmissionDocument');
+const FormSubmissionReminderEmail = require('../../../models/FormSubmissionReminderEmail');
 const storageService = require('../../../services/storage/storageService');
 const { enqueueSalesforceSync } = require('../../../services/salesforce/salesforceQueue');
+const { computeEmailStatus, summarize } = require('../../../services/reminders/reminderStatus');
 const logger = require('../../../utils/logger');
 
 const paginate = (page = 1, limit = 25) => {
@@ -120,8 +122,23 @@ router.get(
         order: [[orderField, orderDir]],
       });
 
+      const ids = result.rows.map((row) => row.id);
+      const reminderEmails = ids.length
+        ? await FormSubmissionReminderEmail.findAll({ where: { form_submission_id: { [Op.in]: ids } } })
+        : [];
+      const reminderEmailsBySubmission = {};
+      for (const row of reminderEmails) {
+        (reminderEmailsBySubmission[row.form_submission_id] ||= []).push(row);
+      }
+
+      const data = result.rows.map((row) => {
+        const plain = row.toJSON();
+        plain.email_summary = summarize(computeEmailStatus(row, reminderEmailsBySubmission[row.id] || []));
+        return plain;
+      });
+
       return res.json({
-        data: result.rows,
+        data,
         meta: {
           page: parseInt(page),
           limit: queryLimit,
@@ -168,6 +185,7 @@ router.get(
         include: [
           { model: FormSubmissionDirector, as: 'directors' },
           { model: FormSubmissionDocument, as: 'documents' },
+          { model: FormSubmissionReminderEmail, as: 'reminderEmails' },
         ],
       });
 
@@ -175,7 +193,10 @@ router.get(
         return res.status(404).json({ errors: ['admin.applications.not_found'] });
       }
 
-      return res.json(submission);
+      const plain = submission.toJSON();
+      plain.email_status = computeEmailStatus(submission, submission.reminderEmails);
+
+      return res.json(plain);
     } catch (error) {
       logger.error('Admin get application error:', error);
       next(error);

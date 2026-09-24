@@ -61,3 +61,59 @@ events:
         subject: New Beneficiary
         template_path: new_beneficiary.en.html
 
+
+  - name: Application Incomplete Reminder 1
+    key: application.incomplete.reminder1
+    templates:
+      en:
+        subject: Continue your Bounce Funding application
+        template_path: reminder_incomplete_1.en.html
+
+  - name: Application Incomplete Reminder 2
+    key: application.incomplete.reminder2
+    templates:
+      en:
+        subject: Your Bounce Funding application is ready when you are
+        template_path: reminder_incomplete_2.en.html
+
+  - name: Funding Options Available
+    key: offers.available.reminder1
+    templates:
+      en:
+        subject: "Great news — we've found 3 funding options for you"
+        template_path: reminder_offers_1.en.html
+
+  - name: Funding Options Reminder 2
+    key: offers.available.reminder2
+    templates:
+      en:
+        subject: Your funding options are ready when you are
+        template_path: reminder_offers_2.en.html
+
+  - name: Funding Options Final Reminder
+    key: offers.available.reminder3
+    templates:
+      en:
+        subject: Still considering your Bounce Funding options?
+        template_path: reminder_offers_3.en.html
+
+  - name: Funding Option Selected
+    key: offer.selected
+    templates:
+      en:
+        subject: "Great — you've selected a funding option"
+        template_path: reminder_offer_selected.en.html
+
+  - name: Document Step Unfinished
+    key: documents.unfinished
+    templates:
+      en:
+        subject: Complete the document step for your Bounce Funding application
+        template_path: reminder_documents_unfinished.en.html
+
+  - name: Documents Received
+    key: documents.received
+    templates:
+      en:
+        subject: "Documents received — we'll be in touch soon"
+        template_path: reminder_documents_received.en.html

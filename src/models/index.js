@@ -15,6 +15,7 @@ const Comment = require('./Comment');
 const FormSubmission = require('./FormSubmission');
 const FormSubmissionDirector = require('./FormSubmissionDirector');
 const FormSubmissionDocument = require('./FormSubmissionDocument');
+const FormSubmissionReminderEmail = require('./FormSubmissionReminderEmail');
 const LoanOfferTemplate = require('./LoanOfferTemplate');
 
 const initializeModels = async () => {
@@ -44,6 +45,9 @@ const initializeModels = async () => {
   FormSubmission.hasMany(FormSubmissionDocument, { foreignKey: 'form_submission_id', as: 'documents' });
   FormSubmissionDocument.belongsTo(FormSubmission, { foreignKey: 'form_submission_id', as: 'formSubmission' });
 
+  FormSubmission.hasMany(FormSubmissionReminderEmail, { foreignKey: 'form_submission_id', as: 'reminderEmails' });
+  FormSubmissionReminderEmail.belongsTo(FormSubmission, { foreignKey: 'form_submission_id', as: 'formSubmission' });
+
   return {
     User,
     Activity,
@@ -61,6 +65,7 @@ const initializeModels = async () => {
     FormSubmission,
     FormSubmissionDirector,
     FormSubmissionDocument,
+    FormSubmissionReminderEmail,
     LoanOfferTemplate,
   };
 };

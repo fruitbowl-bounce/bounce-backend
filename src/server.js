@@ -172,6 +172,25 @@ const startServer = async () => {
       logger.warn('Salesforce sync initialization failed:', salesforceError.message);
     }
 
+    try {
+      const { initializeQueue: initializeSendgridQueue, initializeWorker: initializeSendgridWorker } = require('./services/sendgrid/sendgridQueue');
+      initializeSendgridQueue();
+      initializeSendgridWorker();
+      logger.info('SendGrid contact sync service initialized');
+    } catch (sendgridError) {
+      logger.warn('SendGrid contact sync initialization failed:', sendgridError.message);
+    }
+
+    try {
+      const { initializeQueue: initializeReminderQueue, initializeWorker: initializeReminderWorker, scheduleRepeatingCheck } = require('./services/reminders/reminderQueue');
+      initializeReminderQueue();
+      initializeReminderWorker();
+      await scheduleRepeatingCheck();
+      logger.info('Reminder email service initialized');
+    } catch (reminderError) {
+      logger.warn('Reminder email initialization failed:', reminderError.message);
+    }
+
     if (process.env.NODE_ENV !== 'production') {
       await sequelize.sync({ alter: false });
     }
@@ -184,8 +203,12 @@ const startServer = async () => {
       logger.info('SIGTERM signal received: closing HTTP server');
       const { closeQueue } = require('./services/email');
       const { closeQueue: closeSalesforceQueue } = require('./services/salesforce/salesforceQueue');
+      const { closeQueue: closeSendgridQueue } = require('./services/sendgrid/sendgridQueue');
+      const { closeQueue: closeReminderQueue } = require('./services/reminders/reminderQueue');
       await closeQueue();
       await closeSalesforceQueue();
+      await closeSendgridQueue();
+      await closeReminderQueue();
       process.exit(0);
     });
 
@@ -193,8 +216,12 @@ const startServer = async () => {
       logger.info('SIGINT signal received: closing HTTP server');
       const { closeQueue } = require('./services/email');
       const { closeQueue: closeSalesforceQueue } = require('./services/salesforce/salesforceQueue');
+      const { closeQueue: closeSendgridQueue } = require('./services/sendgrid/sendgridQueue');
+      const { closeQueue: closeReminderQueue } = require('./services/reminders/reminderQueue');
       await closeQueue();
       await closeSalesforceQueue();
+      await closeSendgridQueue();
+      await closeReminderQueue();
       process.exit(0);
     });
   } catch (error) {

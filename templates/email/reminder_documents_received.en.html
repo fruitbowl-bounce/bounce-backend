@@ -1,0 +1,23 @@
+<div style="background-color:#F3F4F6;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+  <div style="max-width:480px;margin:0 auto;">
+    {{#if logo}}
+    <div style="text-align:center;margin-bottom:24px;">
+      <img src="{{logo}}" alt="Bounce Funding" style="height:28px;" />
+    </div>
+    {{/if}}
+    <div style="background-color:#ffffff;border-radius:12px;padding:32px 28px;border:1px solid #e5e0f8;">
+      <p style="font-size:15px;color:#374151;margin:0 0 16px;">Hello{{#if firstName}} {{firstName}}{{/if}},</p>
+      <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px;">Documents received. Our team will review your application and be in touch soon. We'll check your documents and application details to confirm eligibility with the lender, and contact you if we need any additional information or clarification.</p>
+      <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px;">Keep an eye on your inbox for updates.</p>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:8px 0 0;">You'll receive a final decision and clear next steps once the review is complete. Most applicants hear back within 48 hours, but this is not a guarantee. Receiving your documents does not mean funding has been approved.</p>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:8px 0 0;">If you have a question, reply to this email or contact Bounce Funding using the details below.</p>
+      <p style="font-size:14px;color:#374151;margin:20px 0 0;">The Bounce Funding team</p>
+    </div>
+    <div style="text-align:center;margin-top:24px;font-size:12px;color:#94a3b8;line-height:1.7;">
+      Bounce Funding<br>
+      <a href="mailto:support@bouncefunding.co.uk" style="color:#94a3b8;">support@bouncefunding.co.uk</a> | 0208 064 1254<br>
+      Bounce Funding is a trading name of Bounce Funding UK LTD, registered in England and Wales. Company number 15664180.<br>
+      {{#if privacyPolicyUrl}}<a href="{{privacyPolicyUrl}}" style="color:#94a3b8;">Privacy policy</a>{{/if}}
+    </div>
+  </div>
+</div>

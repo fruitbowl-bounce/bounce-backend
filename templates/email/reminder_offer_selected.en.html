@@ -1,0 +1,25 @@
+<div style="background-color:#F3F4F6;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+  <div style="max-width:480px;margin:0 auto;">
+    {{#if logo}}
+    <div style="text-align:center;margin-bottom:24px;">
+      <img src="{{logo}}" alt="Bounce Funding" style="height:28px;" />
+    </div>
+    {{/if}}
+    <div style="background-color:#ffffff;border-radius:12px;padding:32px 28px;border:1px solid #e5e0f8;">
+      <p style="font-size:15px;color:#374151;margin:0 0 16px;">Hello{{#if firstName}} {{firstName}}{{/if}},</p>
+      <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px;">Your application is progressing. We just need a few documents to complete the next stage. Return to your application to see what's needed, upload your files securely, then select "Submit Documents" when you're ready.</p>
+      <a href="{{resumeLink}}" style="display:inline-block;background-color:#6333E1;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 28px;border-radius:9999px;font-size:15px;">Continue to upload documents</a>
+      <p style="font-size:14px;margin:16px 0 0;"><a href="{{resumeLink}}" style="color:#6333E1;font-weight:600;text-decoration:none;">Review or change your option</a></p>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:24px 0 0;">The upload page will show the documents needed for your application. You can return to finish later if you need to. Bounce will review your documents after you submit them and be in touch if anything else is required.</p>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:8px 0 0;">Selecting an option is not a final funding offer or approval.</p>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:8px 0 0;">If you have any questions, reply to this email or contact Bounce Funding using the details below.</p>
+      <p style="font-size:14px;color:#374151;margin:20px 0 0;">The Bounce Funding team</p>
+    </div>
+    <div style="text-align:center;margin-top:24px;font-size:12px;color:#94a3b8;line-height:1.7;">
+      Bounce Funding<br>
+      <a href="mailto:support@bouncefunding.co.uk" style="color:#94a3b8;">support@bouncefunding.co.uk</a> | 0208 064 1254<br>
+      Bounce Funding is a trading name of Bounce Funding UK LTD, registered in England and Wales. Company number 15664180.<br>
+      {{#if privacyPolicyUrl}}<a href="{{privacyPolicyUrl}}" style="color:#94a3b8;">Privacy policy</a>{{/if}}
+    </div>
+  </div>
+</div>
