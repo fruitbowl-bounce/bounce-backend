@@ -49,6 +49,9 @@ const documentLinksBlock = (documents, docType, label) =>
 // isn't included here — the caller puts it in the upsert URL, not the body.
 // `submission.documents` (if loaded) feeds the two link fields below.
 const mapSubmissionToSalesforce = (submission) => ({
+  // Lookup to the Lead — the sync always upserts the Lead first, so its id
+  // is already stored by the time the Loan_Application__c is written.
+  Lead__c: submission.salesforce_lead_id || null,
   Partner_Id__c: PARTNER_ID,
   Partner_Country__c: PARTNER_COUNTRY,
   Bank_Statement_Links__c: documentLinksBlock(submission.documents, 'bank_statement', 'Bank Statement'),

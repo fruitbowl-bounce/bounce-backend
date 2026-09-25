@@ -13,9 +13,11 @@ const EXTERNAL_ID_FIELD = 'Application_Ref__c';
 const upsert = async (object, applicationRef, fields, knownId) => {
   const apiVersion = process.env.SALESFORCE_API_VERSION || 'v60.0';
 
+  const recordUrl = (token) =>
+    `${token.instanceUrl}/services/data/${apiVersion}/sobjects/${object}/${EXTERNAL_ID_FIELD}/${encodeURIComponent(applicationRef)}`;
+
   const attempt = async (token) => {
-    const url = `${token.instanceUrl}/services/data/${apiVersion}/sobjects/${object}/${EXTERNAL_ID_FIELD}/${encodeURIComponent(applicationRef)}`;
-    return fetch(url, {
+    return fetch(recordUrl(token), {
       method: 'PATCH',
       headers: {
         Authorization: `Bearer ${token.accessToken}`,
@@ -59,7 +61,13 @@ const upsert = async (object, applicationRef, fields, knownId) => {
     return body.id || knownId || null;
   }
   if (response.status === 204) {
-    return knownId || null;
+    if (knownId) return knownId;
+    // Updated an existing record we have no id for locally — look it up,
+    // since the Lead id feeds the Loan_Application__c's Lead__c lookup.
+    const lookup = await fetch(`${recordUrl(token)}?fields=Id`, {
+      headers: { Authorization: `Bearer ${token.accessToken}` },
+    });
+    return lookup.ok ? (await lookup.json()).Id || null : null;
   }
 
   const text = await response.text();
