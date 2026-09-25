@@ -1,8 +1,14 @@
+const { monthlyRepaymentFor } = require('../../utils/offerMath');
+
 // Fixed on every submission — this integration is UK-only for Bounce
 // Funding today; a real per-partner/per-market value can replace these
 // later without any change on the Salesforce side.
 const PARTNER_ID = 'bounce-funding';
 const PARTNER_COUNTRY = 'UK';
+
+// Stage 4 is the offers page — reaching it means the applicant has been
+// shown every active offer, whether or not they go on to pick one.
+const OFFERS_SHOWN_STAGE = 4;
 
 const documentPublicUrl = (token) => {
   const protocol = process.env.APP_PROTOCOL || 'http';
@@ -73,4 +79,66 @@ const mapSubmissionToSalesforce = (submission) => ({
   Offer_Tag__c: submission.offer_tag,
 });
 
-module.exports = { mapSubmissionToSalesforce };
+// Director names come from Companies House as "First Middle SURNAME".
+const splitName = (fullName) => {
+  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return { firstName: null, lastName: null };
+  const lastName = parts.pop();
+  return { firstName: parts.join(' ').slice(0, 40) || null, lastName };
+};
+
+// One line per offer the applicant was shown, with the same figures the
+// Stage 4 cards display for their loan amount.
+const offersShownBlock = (templates, loanAmount) =>
+  (templates || [])
+    .map((offer) => {
+      const rate = offer.factorRate ? `factor rate ${offer.factorRate}` : offer.apr;
+      const monthly = monthlyRepaymentFor(loanAmount, offer);
+      return [offer.name, rate, offer.term, monthly && `est. ${monthly}/month`]
+        .filter(Boolean)
+        .join(', ');
+    })
+    .join('\n') || null;
+
+// The Lead exists from the very first save (Stage 1, email entered) and is
+// kept current on every later save. Salesforce requires LastName and
+// Company on every Lead, but the applicant's name only arrives at Stage 3 —
+// until then the email stands in as the name (agreed with the client).
+// Application_Ref__c is the Lead's external-ID field, put in the upsert URL
+// by the caller, same as for Loan_Application__c. `offerTemplates` are the
+// active offers (public shape) the applicant sees at Stage 4.
+const mapSubmissionToLead = (submission, offerTemplates) => {
+  const { firstName, lastName } = splitName(submission.director_name);
+  const offersShown = submission.funnel_stage >= OFFERS_SHOWN_STAGE;
+  const factorRate = submission.offer_factor_rate ? Number(submission.offer_factor_rate) : null;
+  return {
+    FirstName: firstName,
+    LastName: (lastName || submission.email).slice(0, 80),
+    Email: submission.email,
+    Phone: submission.phone || null,
+    Company: submission.company_name || 'Not provided yet',
+    Trading_Time__c: submission.trading_time,
+    Turnover_Range__c: submission.turnover_range,
+    // Checkbox — can't be null, so unanswered goes over as false.
+    Owns_Property__c: !!submission.owns_property,
+    // Raw partner id only — the client resolves it to their Partner
+    // Account lookup (Partner__c) on their side.
+    Partner_ID_Source__c: PARTNER_ID,
+    Partner_Country__c: PARTNER_COUNTRY,
+    Offers_Shown__c: offersShown ? offersShownBlock(offerTemplates, submission.loan_amount) : null,
+    Offer_Selected__c: !!submission.offer_id,
+    Offer_Name__c: submission.offer_name,
+    // An offer is priced either as an APR or as a factor rate, never both —
+    // the client wants Offer APR kept for real percentage rates only.
+    // Offer_Factor_Rate__c is a Text field on their Lead (Number on the
+    // Loan Application), hence the string.
+    Offer_APR__c: factorRate ? null : submission.offer_apr,
+    Offer_Factor_Rate__c: factorRate ? String(factorRate) : null,
+    Offer_Term__c: submission.offer_term,
+    Offer_Monthly_Repayment__c: toCurrencyNumber(submission.offer_monthly_repayment),
+    // No Offer_Tag__c here — the client's Lead doesn't have it, and an
+    // unknown field fails the whole upsert.
+  };
+};
+
+module.exports = { mapSubmissionToSalesforce, mapSubmissionToLead };

@@ -2,7 +2,10 @@ const { Queue, Worker } = require('bullmq');
 const logger = require('../../utils/logger');
 const FormSubmission = require('../../models/FormSubmission');
 const FormSubmissionDocument = require('../../models/FormSubmissionDocument');
-const { upsertSubmission } = require('./salesforceClient');
+const LoanOfferTemplate = require('../../models/LoanOfferTemplate');
+const { upsertLead, upsertSubmission } = require('./salesforceClient');
+
+const COMPLETED_STAGE = 6;
 
 let salesforceQueue = null;
 let salesforceWorker = null;
@@ -65,7 +68,22 @@ const initializeWorker = () => {
         return { skipped: true };
       }
 
-      const salesforceId = await upsertSubmission(submission);
+      // Same active offers, in the same order, as the Stage 4 page shows.
+      const offerTemplates = (await LoanOfferTemplate.findAll({
+        where: { active: true },
+        order: [['sort_order', 'ASC'], ['id', 'ASC']],
+      })).map((t) => t.asJson());
+
+      // The Lead is kept current from the first save onwards; the
+      // Loan_Application__c only exists once the application is complete
+      // (Stage 5's final submit saves it as stage 6).
+      const leadId = await upsertLead(submission, offerTemplates);
+      await submission.update({ salesforce_lead_id: leadId });
+
+      let salesforceId = submission.salesforce_id;
+      if (submission.funnel_stage >= COMPLETED_STAGE) {
+        salesforceId = await upsertSubmission(submission);
+      }
 
       await submission.update({
         salesforce_id: salesforceId,
@@ -75,7 +93,7 @@ const initializeWorker = () => {
       });
 
       logger.info(`Salesforce sync job ${job.id} succeeded for form_submission ${formSubmissionId}`);
-      return { salesforceId };
+      return { leadId, salesforceId };
     },
     {
       connection: getRedisConnection(),

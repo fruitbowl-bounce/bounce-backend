@@ -131,6 +131,10 @@ const FormSubmission = sequelize.define('form_submissions', {
     type: DataTypes.STRING(30),
     allowNull: true,
   },
+  salesforce_lead_id: {
+    type: DataTypes.STRING(30),
+    allowNull: true,
+  },
   salesforce_synced_at: {
     type: DataTypes.DATE,
     allowNull: true,

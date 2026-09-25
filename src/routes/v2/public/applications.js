@@ -19,6 +19,7 @@ const storageService = require('../../../services/storage/storageService');
 const { enqueueSalesforceSync } = require('../../../services/salesforce/salesforceQueue');
 const { enqueueSendgridSync } = require('../../../services/sendgrid/sendgridQueue');
 const logger = require('../../../utils/logger');
+const { monthlyRepaymentFor } = require('../../../utils/offerMath');
 
 // Unauthenticated + writes to the DB, so it gets its own tighter limit on
 // top of the global one in server.js. Higher than before since a single
@@ -47,24 +48,6 @@ const uploadFields = multer({
   { name: 'bankStatements', maxCount: 10 },
   { name: 'filedAccounts', maxCount: 10 },
 ]);
-
-// Same maths as calcMonthly() on the Stage 4 offer cards, so what gets
-// stored (and synced to Salesforce) matches the figure the applicant saw.
-// The offer templates don't carry a repayment figure — it depends on the
-// requested loan amount — so the frontend's offer object never has one.
-const monthlyRepaymentFor = (principal, offer) => {
-  const amount = Number(principal) || 0;
-  if (!amount) return null;
-  let payment = null;
-  if (offer.factorRate) {
-    payment = (amount * Number(offer.factorRate)) / (Number(offer.termMonths) || 12);
-  } else if (offer.aprValue && offer.termMonths) {
-    const r = Number(offer.aprValue) / 100 / 12;
-    const n = Number(offer.termMonths);
-    payment = amount * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-  }
-  return payment ? `£${Math.round(payment).toLocaleString('en-GB')}` : null;
-};
 
 const parseJsonFields = (req, res, next) => {
   for (const field of ['selectedCompany', 'selectedOffer']) {
