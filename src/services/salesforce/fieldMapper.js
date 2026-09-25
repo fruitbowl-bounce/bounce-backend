@@ -10,13 +10,22 @@ const documentPublicUrl = (token) => {
   return `${protocol}://${domain}/api/v2/nebryx/public/documents/${token}`;
 };
 
+const escapeHtml = (value) =>
+  String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
 // One permanent link per uploaded file of that type, one per line — a
 // Loan_Application__c can have several bank statements / accounts files.
-const documentLinksBlock = (documents, docType) =>
+// Both link fields are Rich Text Area on the Salesforce side, so each link
+// goes over as an HTML anchor (a bare URL saves but isn't clickable there).
+const documentLinksBlock = (documents, docType, label) =>
   (documents || [])
     .filter((doc) => doc.doc_type === docType)
-    .map((doc) => documentPublicUrl(doc.public_token))
-    .join('\n') || null;
+    .map((doc, i) => `<a href="${escapeHtml(documentPublicUrl(doc.public_token))}" target="_blank">${label} ${i + 1}</a>`)
+    .join('<br>') || null;
 
 // Maps a form_submissions row 1:1 onto the custom fields created by hand on
 // the Loan_Application__c object in Salesforce Setup (see the plan's field
@@ -26,8 +35,8 @@ const documentLinksBlock = (documents, docType) =>
 const mapSubmissionToSalesforce = (submission) => ({
   Partner_Id__c: PARTNER_ID,
   Partner_Country__c: PARTNER_COUNTRY,
-  Bank_Statement_Links__c: documentLinksBlock(submission.documents, 'bank_statement'),
-  Filed_Accounts_Links__c: documentLinksBlock(submission.documents, 'filed_accounts'),
+  Bank_Statement_Links__c: documentLinksBlock(submission.documents, 'bank_statement', 'Bank Statement'),
+  Filed_Accounts_Links__c: documentLinksBlock(submission.documents, 'filed_accounts', 'Filed Accounts'),
   Loan_Amount__c: submission.loan_amount,
   Funding_Purpose__c: submission.funding_purpose,
   Applicant_Email__c: submission.email,
