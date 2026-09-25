@@ -10,6 +10,16 @@ const documentPublicUrl = (token) => {
   return `${protocol}://${domain}/api/v2/nebryx/public/documents/${token}`;
 };
 
+// Offer amounts are stored display-formatted ("£1,769") for the admin panel,
+// but both fields are Currency on the Salesforce side, which only accepts a
+// plain number — strip the formatting on the way out.
+const toCurrencyNumber = (value) => {
+  const digits = String(value ?? '').replace(/[^0-9.-]/g, '');
+  if (!/\d/.test(digits)) return null;
+  const n = Number(digits);
+  return Number.isFinite(n) ? n : null;
+};
+
 const escapeHtml = (value) =>
   String(value)
     .replace(/&/g, '&amp;')
@@ -57,8 +67,8 @@ const mapSubmissionToSalesforce = (submission) => ({
   Offer_Name__c: submission.offer_name,
   Offer_APR__c: submission.offer_apr,
   Offer_Term__c: submission.offer_term,
-  Offer_Monthly_Repayment__c: submission.offer_monthly_repayment,
-  Offer_Max_Amount__c: submission.offer_max_amount,
+  Offer_Monthly_Repayment__c: toCurrencyNumber(submission.offer_monthly_repayment),
+  Offer_Max_Amount__c: toCurrencyNumber(submission.offer_max_amount),
   Offer_Factor_Rate__c: submission.offer_factor_rate,
   Offer_Tag__c: submission.offer_tag,
 });
