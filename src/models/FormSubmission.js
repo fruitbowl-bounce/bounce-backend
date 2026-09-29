@@ -135,6 +135,20 @@ const FormSubmission = sequelize.define('form_submissions', {
     type: DataTypes.STRING(30),
     allowNull: true,
   },
+  // Set once the Lead is converted (offers shown). salesforce_id above is
+  // the retired Loan_Application__c id, kept for older applications.
+  salesforce_opportunity_id: {
+    type: DataTypes.STRING(30),
+    allowNull: true,
+  },
+  salesforce_contact_id: {
+    type: DataTypes.STRING(30),
+    allowNull: true,
+  },
+  salesforce_account_id: {
+    type: DataTypes.STRING(30),
+    allowNull: true,
+  },
   salesforce_synced_at: {
     type: DataTypes.DATE,
     allowNull: true,

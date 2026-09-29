@@ -3,9 +3,70 @@ const logger = require('../../utils/logger');
 const FormSubmission = require('../../models/FormSubmission');
 const FormSubmissionDocument = require('../../models/FormSubmissionDocument');
 const LoanOfferTemplate = require('../../models/LoanOfferTemplate');
-const { upsertLead, upsertSubmission } = require('./salesforceClient');
+const {
+  upsertByRef, updateById, findConversion, findExistingContact, convertLead,
+} = require('./salesforceClient');
+const {
+  OFFERS_SHOWN_STAGE,
+  mapSubmissionToLead,
+  mapSubmissionToOpportunity,
+  mapSubmissionToContact,
+  mapSubmissionToAccount,
+} = require('./fieldMapper');
 
-const COMPLETED_STAGE = 6;
+const convertedIds = (lead) => (lead && lead.isConverted
+  ? { opportunityId: lead.opportunityId, contactId: lead.contactId, accountId: lead.accountId }
+  : null);
+
+// Before conversion, every sync keeps the Lead current; once offers have
+// been shown, the Lead is converted into an Account, Contact and
+// Opportunity. Returns the Lead id and, if converted, the three new ids.
+//
+// A converted Lead can't be written to again, so the conversion state is
+// re-checked in Salesforce first (a broker may have converted it by hand)
+// and again after any failure: two sync jobs for the same application can
+// run at once, and the one that loses the race sees its Lead write or
+// conversion fail because the other job already converted it. Picking up
+// that conversion instead of failing keeps this lock-free and idempotent.
+const syncLead = async (submission, offerTemplates) => {
+  const ref = submission.application_ref;
+  const alreadyConverted = async () => {
+    const lead = await findConversion(ref);
+    return lead?.isConverted ? { leadId: lead.leadId, conversion: convertedIds(lead) } : null;
+  };
+
+  const existing = await alreadyConverted();
+  if (existing) return existing;
+
+  let leadId;
+  try {
+    leadId = await upsertByRef('Lead', ref, mapSubmissionToLead(submission, offerTemplates), submission.salesforce_lead_id);
+  } catch (err) {
+    const converted = await alreadyConverted();
+    if (converted) return converted;
+    throw err;
+  }
+
+  if (submission.funnel_stage < OFFERS_SHOWN_STAGE) return { leadId, conversion: null };
+
+  // Same email at the same business = returning applicant: link to their
+  // existing Contact and Account. The Opportunity is always new.
+  const returning = await findExistingContact({
+    email: submission.email,
+    companyNumber: submission.company_number,
+    companyName: submission.company_name,
+  });
+  // The ref in the name tells a returning applicant's Opportunities apart.
+  const opportunityName = `${submission.company_name || submission.email} - ${ref}`.slice(0, 120);
+
+  try {
+    return { leadId, conversion: await convertLead({ leadId, ...returning, opportunityName }) };
+  } catch (err) {
+    const converted = await alreadyConverted();
+    if (converted) return converted;
+    throw err;
+  }
+};
 
 let salesforceQueue = null;
 let salesforceWorker = null;
@@ -74,26 +135,41 @@ const initializeWorker = () => {
         order: [['sort_order', 'ASC'], ['id', 'ASC']],
       })).map((t) => t.asJson());
 
-      // The Lead is kept current from the first save onwards; the
-      // Loan_Application__c only exists once the application is complete
-      // (Stage 5's final submit saves it as stage 6).
-      const leadId = await upsertLead(submission, offerTemplates);
-      await submission.update({ salesforce_lead_id: leadId });
+      let leadId = submission.salesforce_lead_id;
+      let conversion = submission.salesforce_opportunity_id ? {
+        opportunityId: submission.salesforce_opportunity_id,
+        contactId: submission.salesforce_contact_id,
+        accountId: submission.salesforce_account_id,
+      } : null;
 
-      let salesforceId = submission.salesforce_id;
-      if (submission.funnel_stage >= COMPLETED_STAGE) {
-        salesforceId = await upsertSubmission(submission);
+      if (!conversion) {
+        ({ leadId, conversion } = await syncLead(submission, offerTemplates));
+        // Stored straight away so a failure in the writes below doesn't
+        // lose track of records that now exist in Salesforce.
+        await submission.update({
+          salesforce_lead_id: leadId,
+          salesforce_opportunity_id: conversion?.opportunityId ?? null,
+          salesforce_contact_id: conversion?.contactId ?? null,
+          salesforce_account_id: conversion?.accountId ?? null,
+        });
+      }
+
+      // After conversion the Lead is frozen: the deal goes on the
+      // Opportunity, the person on the Contact, the business on the Account.
+      if (conversion) {
+        await updateById('Opportunity', conversion.opportunityId, mapSubmissionToOpportunity(submission, offerTemplates));
+        await updateById('Contact', conversion.contactId, mapSubmissionToContact(submission));
+        await updateById('Account', conversion.accountId, mapSubmissionToAccount(submission));
       }
 
       await submission.update({
-        salesforce_id: salesforceId,
         salesforce_synced_at: new Date(),
         status: 'synced_to_salesforce',
         salesforce_sync_error: null,
       });
 
       logger.info(`Salesforce sync job ${job.id} succeeded for form_submission ${formSubmissionId}`);
-      return { leadId, salesforceId };
+      return { leadId, opportunityId: conversion?.opportunityId ?? null };
     },
     {
       connection: getRedisConnection(),
