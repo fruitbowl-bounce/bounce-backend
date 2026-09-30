@@ -130,7 +130,9 @@ const mapSubmissionToOpportunity = (submission, offerTemplates) => ({
   ...offerRateFields(submission),
   Requested_Term__c: submission.offer_term,
   Estimated_Monthly_Repayment__c: toCurrencyNumber(submission.offer_monthly_repayment),
-  Offer_Max_Amount__c: toCurrencyNumber(submission.offer_max_amount),
+  // No Offer_Max_Amount__c: the client never created it on the Opportunity
+  // (unused, the offer templates have no max), and an unknown field fails
+  // the whole update.
   Offer_Tag__c: submission.offer_tag,
   Bank_Statement_Links__c: documentLinksBlock(submission.documents, 'bank_statement', 'Bank Statement'),
   Filed_Accounts_Links__c: documentLinksBlock(submission.documents, 'filed_accounts', 'Filed Accounts'),
