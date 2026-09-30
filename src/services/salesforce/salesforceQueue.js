@@ -12,7 +12,23 @@ const {
   mapSubmissionToOpportunity,
   mapSubmissionToContact,
   mapSubmissionToAccount,
+  mapCompanyDetailsToAccount,
 } = require('./fieldMapper');
+const { fetchCompanyDetails } = require('../companiesHouse');
+
+// Companies House details for the Account. A lookup failure (their API
+// down, rate limited) shouldn't fail the whole sync, so the Account just
+// keeps whatever it already has and the next sync tries again.
+const companyDetailsFields = async (submission) => {
+  if (!submission.company_number) return {};
+  try {
+    const details = await fetchCompanyDetails(submission.company_number);
+    return details ? mapCompanyDetailsToAccount(details) : {};
+  } catch (err) {
+    logger.warn(`Companies House lookup failed for ${submission.application_ref}: ${err.message}`);
+    return {};
+  }
+};
 
 const convertedIds = (lead) => (lead && lead.isConverted
   ? { opportunityId: lead.opportunityId, contactId: lead.contactId, accountId: lead.accountId }
@@ -159,7 +175,10 @@ const initializeWorker = () => {
       if (conversion) {
         await updateById('Opportunity', conversion.opportunityId, mapSubmissionToOpportunity(submission, offerTemplates));
         await updateById('Contact', conversion.contactId, mapSubmissionToContact(submission));
-        await updateById('Account', conversion.accountId, mapSubmissionToAccount(submission));
+        await updateById('Account', conversion.accountId, {
+          ...mapSubmissionToAccount(submission),
+          ...(await companyDetailsFields(submission)),
+        });
       }
 
       await submission.update({

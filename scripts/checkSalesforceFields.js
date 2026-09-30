@@ -12,6 +12,7 @@ const {
   mapSubmissionToOpportunity,
   mapSubmissionToContact,
   mapSubmissionToAccount,
+  mapCompanyDetailsToAccount,
 } = require('../src/services/salesforce/fieldMapper');
 
 // The mappers' keys are exactly the fields each write sends, so a blank
@@ -22,7 +23,7 @@ const FIELDS = {
   Lead: [...Object.keys(mapSubmissionToLead(blank, [])), 'Application_Ref__c'],
   Opportunity: Object.keys(mapSubmissionToOpportunity(blank, [])),
   Contact: Object.keys(mapSubmissionToContact(blank)),
-  Account: Object.keys(mapSubmissionToAccount(blank)),
+  Account: [...Object.keys(mapSubmissionToAccount(blank)), ...Object.keys(mapCompanyDetailsToAccount({}))],
 };
 
 (async () => {

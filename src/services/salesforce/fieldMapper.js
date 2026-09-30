@@ -1,5 +1,7 @@
 const { monthlyRepaymentFor } = require('../../utils/offerMath');
 const { splitUkAddress } = require('../../utils/ukAddress');
+// Companies House's own SIC 2007 descriptions (api-enumerations constants.yml).
+const SIC_DESCRIPTIONS = require('../../data/sicCodes.json');
 
 // Fixed on every submission — this integration is UK-only for Bounce
 // Funding today; a real per-partner/per-market value can replace these
@@ -171,10 +173,77 @@ const mapSubmissionToAccount = (submission) => {
   };
 };
 
+// Companies House status labels, as their own site shows them.
+const COMPANY_STATUS = {
+  active: 'Active',
+  dissolved: 'Dissolved',
+  liquidation: 'Liquidation',
+  receivership: 'Receiver Action',
+  'converted-closed': 'Converted / Closed',
+  'voluntary-arrangement': 'Voluntary Arrangement',
+  'insolvency-proceedings': 'Insolvency Proceedings',
+  administration: 'In Administration',
+  open: 'Open',
+  closed: 'Closed',
+  registered: 'Registered',
+  removed: 'Removed',
+};
+
+const ukDate = (isoDate) => (isoDate ? isoDate.split('-').reverse().join('/') : null);
+
+// Long Text Area limit on the client's fields.
+const longText = (lines, max = 2000) => (lines.length ? lines.join('\n').slice(0, max) : null);
+
+// "ownership-of-shares-25-to-50-percent-as-trust" -> "25-50% shares (via trust)"
+const natureOfControl = (nature) => {
+  const via = nature.match(/-as-(trust|firm)/)?.[1];
+  const range = nature.match(/(\d+)-to-(\d+)-percent/);
+  const share = range ? `${range[1]}-${range[2]}%` : /more-than-25-percent/.test(nature) ? 'over 25%' : null;
+  let label;
+  if (nature.startsWith('ownership-of-shares')) label = `${share} shares`;
+  else if (nature.startsWith('voting-rights')) label = `${share} voting rights`;
+  else if (nature.startsWith('right-to-appoint-and-remove')) label = 'right to appoint/remove directors';
+  else if (nature.startsWith('significant-influence-or-control')) label = 'significant influence or control';
+  else label = nature.replace(/-/g, ' ');
+  return via ? `${label} (via ${via})` : label;
+};
+
+// Registered details from Companies House (see services/companiesHouse.js).
+// Kept separate from mapSubmissionToAccount so a failed lookup leaves the
+// values already in Salesforce alone instead of blanking them.
+const mapCompanyDetailsToAccount = ({ profile = {}, charges = [], pscs = [] }) => {
+  const accounts = profile.accounts || {};
+  // Only charges still in force: satisfied ones are old, repaid lenders.
+  const outstanding = charges.filter((c) => c.status === 'outstanding' || c.status === 'part-satisfied');
+  return {
+    Company_Status__c: COMPANY_STATUS[profile.company_status] || profile.company_status || null,
+    Incorporation_Date__c: profile.date_of_creation || null,
+    SIC_Codes__c: longText((profile.sic_codes || []).map((code) => `${code} ${SIC_DESCRIPTIONS[code] || ''}`.trim()), 1000),
+    Confirmation_Statement_Overdue__c: !!profile.confirmation_statement?.overdue,
+    Accounts_Overdue__c: !!(accounts.overdue || accounts.next_accounts?.overdue),
+    Last_Accounts_Made_Up_To__c: accounts.last_accounts?.made_up_to || null,
+    Next_Accounts_Due__c: accounts.next_due || accounts.next_accounts?.due_on || null,
+    Insolvency_History__c: !!profile.has_insolvency_history,
+    Outstanding_Charges__c: outstanding.length,
+    // "Lloyds Bank PLC, Debenture, created 26/11/2006"
+    Charge_Holders__c: longText(outstanding.map((c) => [
+      (c.persons_entitled || []).map((p) => p.name).join(' & ') || 'Unknown lender',
+      c.classification?.description,
+      c.created_on && `created ${ukDate(c.created_on)}`,
+      c.status === 'part-satisfied' && 'part satisfied',
+    ].filter(Boolean).join(', '))),
+    // "Mr James Hoe, 25-50% shares, 25-50% voting rights" (current PSCs only)
+    PSCs__c: longText(pscs
+      .filter((p) => !p.ceased_on && !p.ceased)
+      .map((p) => [p.name, ...(p.natures_of_control || []).map(natureOfControl)].join(', '))),
+  };
+};
+
 module.exports = {
   OFFERS_SHOWN_STAGE,
   mapSubmissionToLead,
   mapSubmissionToOpportunity,
   mapSubmissionToContact,
   mapSubmissionToAccount,
+  mapCompanyDetailsToAccount,
 };
