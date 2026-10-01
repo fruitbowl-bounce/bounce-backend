@@ -118,9 +118,16 @@ const mapSubmissionToLead = (submission, offerTemplates) => {
 // converted. Amount ("Lender Offer Amount") and Stage are the brokers' to
 // set, so they're never sent. Application_Ref__c carries across from the
 // Lead at conversion via the client's Lead field mapping.
+// Time_Trading__c is a restricted picklist on the Opportunity — anything
+// outside it (e.g. the old month-based buckets on earlier applications) fails
+// the whole update, so only exact matches are sent.
+const TIME_TRADING_VALUES = ['1-2 Years', '2-3 Years', '3-4 Years', '4+ Years'];
+const timeTradingFor = (value) => (TIME_TRADING_VALUES.includes(value) ? value : null);
+
 const mapSubmissionToOpportunity = (submission, offerTemplates) => ({
   Amount_Requested__c: submission.loan_amount != null ? Number(submission.loan_amount) : null,
   Funding_Purpose__c: submission.funding_purpose,
+  Time_Trading__c: timeTradingFor(submission.trading_time),
   Turnover_Range__c: submission.turnover_range,
   Owns_Property__c: !!submission.owns_property,
   Director_Confirmed__c: !!submission.director_confirmed,
