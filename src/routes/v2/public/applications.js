@@ -18,6 +18,7 @@ const FormSubmissionDocument = require('../../../models/FormSubmissionDocument')
 const storageService = require('../../../services/storage/storageService');
 const { enqueueSalesforceSync } = require('../../../services/salesforce/salesforceQueue');
 const { enqueueSendgridSync } = require('../../../services/sendgrid/sendgridQueue');
+const { triggerReminderCheck } = require('../../../services/reminders/reminderQueue');
 const logger = require('../../../utils/logger');
 const { monthlyRepaymentFor } = require('../../../utils/offerMath');
 
@@ -41,13 +42,25 @@ const resumeLimiter = rateLimit({
 // (selectedCompany/selectedOffer) arrive as JSON-encoded strings, see
 // parseJsonFields below. Stages 1-4 send plain JSON with no files — multer's
 // .fields() passes those straight through untouched.
-const uploadFields = multer({
+const multerFields = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: parseInt(process.env.UPLOAD_MAX_SIZE || '10485760') },
 }).fields([
   { name: 'bankStatements', maxCount: 10 },
   { name: 'filedAccounts', maxCount: 10 },
 ]);
+
+// Turns multer's limit errors into codes the form can explain, instead of
+// a generic 500.
+const uploadFields = (req, res, next) => multerFields(req, res, (err) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ errors: ['public.applications.file_too_large'] });
+    }
+    return res.status(422).json({ errors: ['public.applications.too_many_files'] });
+  }
+  next(err);
+});
 
 const parseJsonFields = (req, res, next) => {
   for (const field of ['selectedCompany', 'selectedOffer']) {
@@ -181,6 +194,29 @@ router.put(
         return res.status(422).json({ errors: ['public.applications.email_required_for_new_application'] });
       }
 
+      // Only Companies House companies can apply (Joshua, 02/10): a company
+      // must come with its number, and nothing past Stage 1 is saved without one.
+      const COMPANY_NUMBER = /^[A-Z0-9]{8}$/i;
+      if (selectedCompany && !COMPANY_NUMBER.test(selectedCompany.number || '')) {
+        return res.status(422).json({ errors: ['public.applications.company_number_required'] });
+      }
+      if (parseInt(stage) >= 2 && !selectedCompany?.number && !submission?.company_number) {
+        return res.status(422).json({ errors: ['public.applications.company_number_required'] });
+      }
+
+      // Stage 6 means "documents submitted": it needs a bank statement and the
+      // filed accounts, either in this request or already on file.
+      const submittingDocuments = parseInt(stage) === 6;
+      const hasDocuments = async (submissionId, docType, incoming) => incoming.length > 0
+        || (!!submissionId && (await FormSubmissionDocument.count({ where: { form_submission_id: submissionId, doc_type: docType } })) > 0);
+      const documentsComplete = async (submissionId, incomingBank = [], incomingAccounts = []) =>
+        (await hasDocuments(submissionId, 'bank_statement', incomingBank))
+        && (await hasDocuments(submissionId, 'filed_accounts', incomingAccounts));
+
+      if (submittingDocuments && !(await documentsComplete(submission?.id, bankStatementFiles, filedAccountFiles))) {
+        return res.status(422).json({ errors: ['public.applications.documents_required'] });
+      }
+
       const result = await sequelize.transaction(async (t) => {
         const fields = {};
         setIfPresent(fields, req.body, 'loanAmount', 'loan_amount');
@@ -221,11 +257,12 @@ router.put(
           submission = await FormSubmission.create({
             application_ref: applicationRef,
             resume_token: crypto.randomBytes(24).toString('hex'),
-            funnel_stage: stage,
+            funnel_stage: submittingDocuments ? 5 : stage,
             ...fields,
           }, { transaction: t });
         } else {
-          fields.funnel_stage = Math.max(submission.funnel_stage, parseInt(stage));
+          // Stage 6 is only set once the files are stored, below.
+          fields.funnel_stage = Math.max(submission.funnel_stage, submittingDocuments ? 5 : parseInt(stage));
           await submission.update(fields, { transaction: t });
         }
 
@@ -242,6 +279,16 @@ router.put(
 
       await uploadDocuments(bankStatementFiles, 'bank_statement', result.id);
       await uploadDocuments(filedAccountFiles, 'filed_accounts', result.id);
+
+      // An upload can fail without failing the request (see uploadDocuments),
+      // so only mark the documents as submitted once both kinds are stored.
+      // Otherwise the applicant would get "Documents received" with nothing on file.
+      if (submittingDocuments) {
+        if (!(await documentsComplete(result.id))) {
+          return res.status(502).json({ errors: ['public.applications.documents_upload_failed'] });
+        }
+        await result.update({ funnel_stage: 6 });
+      }
 
       // Fire-and-forget on every save, not just the last one — Salesforce
       // upsert-by-Application-Ref is idempotent, so repeated calls just
@@ -261,7 +308,22 @@ router.put(
         logger.error('Failed to enqueue SendGrid sync job:', queueError);
       }
 
-      return res.status(isNew ? 201 : 200).json({ applicationRef: result.application_ref });
+      // From the offers page on, the confirmation emails are due immediately.
+      if (result.funnel_stage >= 4) {
+        try {
+          await triggerReminderCheck();
+        } catch (queueError) {
+          logger.error('Failed to trigger reminder check:', queueError);
+        }
+      }
+
+      // The resume token goes back only when the application is created, so
+      // the form can move onto its resume address (refresh-safe). Later saves
+      // by ref don't hand it out.
+      return res.status(isNew ? 201 : 200).json({
+        applicationRef: result.application_ref,
+        ...(isNew && { resumeToken: result.resume_token }),
+      });
     } catch (error) {
       if (error.name === 'SequelizeUniqueConstraintError') {
         return res.status(409).json({ errors: ['public.applications.duplicate_ref'] });

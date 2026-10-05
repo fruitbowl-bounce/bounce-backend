@@ -238,7 +238,7 @@ router.post(
         return res.status(404).json({ errors: ['admin.applications.not_found'] });
       }
 
-      await submission.update({ status: 'new', salesforce_sync_error: null });
+      await submission.update({ status: 'new', salesforce_sync_error: null }, { silent: true });
       await enqueueSalesforceSync(submission.id);
 
       return res.status(202).json({ status: submission.status });

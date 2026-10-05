@@ -167,7 +167,7 @@ const initializeWorker = () => {
           salesforce_opportunity_id: conversion?.opportunityId ?? null,
           salesforce_contact_id: conversion?.contactId ?? null,
           salesforce_account_id: conversion?.accountId ?? null,
-        });
+        }, { silent: true });
       }
 
       // After conversion the Lead is frozen: the deal goes on the
@@ -185,7 +185,7 @@ const initializeWorker = () => {
         salesforce_synced_at: new Date(),
         status: 'synced_to_salesforce',
         salesforce_sync_error: null,
-      });
+      }, { silent: true });
 
       logger.info(`Salesforce sync job ${job.id} succeeded for form_submission ${formSubmissionId}`);
       return { leadId, opportunityId: conversion?.opportunityId ?? null };
@@ -214,7 +214,7 @@ const initializeWorker = () => {
         await submission.update({
           status: 'sync_failed',
           salesforce_sync_error: err.message,
-        });
+        }, { silent: true });
       }
     } catch (updateError) {
       logger.error('Failed to record Salesforce sync failure on form_submission:', updateError);

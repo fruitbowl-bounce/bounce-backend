@@ -84,6 +84,14 @@ const scheduleRepeatingCheck = async () => {
   logger.info(`Reminder email check scheduled every ${everyMs}ms`);
 };
 
+// Runs a check right away instead of waiting for the next tick, so the
+// confirmations (offers shown, option selected, documents received) go out
+// as soon as the applicant reaches that stage.
+const triggerReminderCheck = async () => {
+  const queue = initializeQueue();
+  await queue.add(TICK_JOB_NAME, {}, { removeOnComplete: true });
+};
+
 const closeQueue = async () => {
   if (reminderWorker) {
     await reminderWorker.close();
@@ -100,5 +108,6 @@ module.exports = {
   initializeQueue,
   initializeWorker,
   scheduleRepeatingCheck,
+  triggerReminderCheck,
   closeQueue,
 };

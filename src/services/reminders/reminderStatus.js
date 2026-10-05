@@ -3,7 +3,7 @@
 // waiting on an earlier reminder in the sequence / scheduled for a future
 // time / due (eligible, will send on the next scheduler tick).
 const RULES = require('./reminderRules');
-const { hoursFor } = require('./reminderScheduler');
+const { dueAtFor } = require('./reminderScheduler');
 
 // reminderEmails: array of FormSubmissionReminderEmail rows for one submission
 const computeEmailStatus = (submission, reminderEmails = []) => {
@@ -26,8 +26,7 @@ const computeEmailStatus = (submission, reminderEmails = []) => {
       return { key: rule.key, label: rule.label, state: 'waiting_on_prior', requiresPriorKey: rule.requiresPriorKey };
     }
 
-    const referenceTime = rule.requiresPriorKey ? sentByKey[rule.requiresPriorKey].sent_at : submission.updated_at;
-    const dueAt = new Date(new Date(referenceTime).getTime() + hoursFor(rule) * 60 * 60 * 1000);
+    const dueAt = dueAtFor(rule, submission, sentByKey[rule.requiresPriorKey]);
     const state = dueAt <= new Date() ? 'due' : 'scheduled';
     return { key: rule.key, label: rule.label, state, dueAt };
   });

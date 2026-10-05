@@ -5,8 +5,19 @@ const FormSubmissionReminderEmail = require('../../models/FormSubmissionReminder
 const { sendEmail } = require('../email');
 const { resumeLink } = require('../../utils/links');
 const RULES = require('./reminderRules');
+const { nextSendTime } = require('./sendWindow');
 
 const hoursFor = (rule) => parseFloat(process.env[rule.hoursEnvVar] ?? rule.defaultHours);
+
+// When `rule` may go out for `submission`. `prior` is the sent row of
+// rule.requiresPriorKey (needed for from: 'prior'). Reminders that fall due
+// outside the send window are pushed to the next opening.
+const dueAtFor = (rule, submission, prior, now = new Date()) => {
+  const referenceTime = rule.from === 'prior' ? prior.sent_at : submission.updated_at;
+  const dueAt = new Date(new Date(referenceTime).getTime() + hoursFor(rule) * 60 * 60 * 1000);
+  if (!rule.quietHours) return dueAt;
+  return nextSendTime(dueAt > now ? dueAt : now);
+};
 
 const firstNameOf = (fullName) => (fullName || '').trim().split(/\s+/)[0] || '';
 
@@ -19,7 +30,7 @@ const sendReminder = async (submission, rule) => {
       firstName: firstNameOf(submission.director_name),
       resumeLink: resumeLink(submission.resume_token),
       applicationRef: submission.application_ref,
-      privacyPolicyUrl: process.env.PRIVACY_POLICY_URL || null,
+      privacyPolicyUrl: process.env.PRIVACY_POLICY_URL || 'https://bouncefunding.co.uk/privacy-policy/',
     },
   });
 
@@ -55,23 +66,20 @@ const processRule = async (rule) => {
   }
 
   const candidates = await FormSubmission.findAll({ where });
-  const requiredHours = hoursFor(rule);
+  const now = new Date();
 
   for (const submission of candidates) {
     if (!rule.stageMatch(submission.funnel_stage)) continue;
 
-    let referenceTime = submission.updated_at;
-
+    let prior = null;
     if (rule.requiresPriorKey) {
-      const prior = await FormSubmissionReminderEmail.findOne({
+      prior = await FormSubmissionReminderEmail.findOne({
         where: { form_submission_id: submission.id, email_key: rule.requiresPriorKey },
       });
       if (!prior) continue;
-      referenceTime = prior.sent_at;
     }
 
-    const hoursElapsed = (Date.now() - new Date(referenceTime).getTime()) / (1000 * 60 * 60);
-    if (hoursElapsed < requiredHours) continue;
+    if (dueAtFor(rule, submission, prior, now) > now) continue;
 
     try {
       await sendReminder(submission, rule);
@@ -91,4 +99,4 @@ const runReminderCheck = async () => {
   }
 };
 
-module.exports = { runReminderCheck, hoursFor };
+module.exports = { runReminderCheck, hoursFor, dueAtFor };
