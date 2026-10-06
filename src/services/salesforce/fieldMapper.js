@@ -74,7 +74,8 @@ const offerRateFields = (submission) => {
   const factorRate = submission.offer_factor_rate ? Number(submission.offer_factor_rate) : null;
   return {
     Offer_APR__c: factorRate ? null : submission.offer_apr,
-    // Text on both the Lead and the Opportunity in the client's org.
+    // Text(20) in the client's org for now (BF-027 may make it a Number).
+    // Salesforce takes "1.36" as text or as a number, so either works.
     Offer_Factor_Rate__c: factorRate ? String(factorRate) : null,
   };
 };
@@ -173,6 +174,10 @@ const mapSubmissionToAccount = (submission) => {
   return {
     Name: (submission.company_name || 'Not provided yet').slice(0, 255),
     Company_Number__c: submission.company_number || null,
+    // Conversion copies the Lead phone onto a new Account only. A returning
+    // applicant's Account would keep their old number without this (BF-021).
+    // Left out when empty so it never blanks a number a broker entered.
+    ...(submission.phone ? { Phone: submission.phone } : {}),
     BillingStreet: address.street,
     BillingCity: address.city,
     BillingPostalCode: address.postalCode,
@@ -247,6 +252,7 @@ const mapCompanyDetailsToAccount = ({ profile = {}, charges = [], pscs = [] }) =
 };
 
 module.exports = {
+  splitName,
   OFFERS_SHOWN_STAGE,
   mapSubmissionToLead,
   mapSubmissionToOpportunity,

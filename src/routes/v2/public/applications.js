@@ -18,6 +18,7 @@ const FormSubmissionDocument = require('../../../models/FormSubmissionDocument')
 const storageService = require('../../../services/storage/storageService');
 const { enqueueSalesforceSync } = require('../../../services/salesforce/salesforceQueue');
 const { enqueueSendgridSync } = require('../../../services/sendgrid/sendgridQueue');
+const { enqueueBrevoSync } = require('../../../services/brevo/brevoQueue');
 const { triggerReminderCheck } = require('../../../services/reminders/reminderQueue');
 const logger = require('../../../utils/logger');
 const { monthlyRepaymentFor } = require('../../../utils/offerMath');
@@ -158,7 +159,11 @@ router.put(
     body('turnover').optional().isString().trim().notEmpty(),
     body('director').optional().isString().trim().notEmpty(),
     body('address').optional().isString().trim().notEmpty(),
-    body('phone').optional().isString().trim().notEmpty(),
+    // A full UK number: +44 then 10 digits ("+44 123" was getting through).
+    // Same rule as bounce-funding/src/validation.ts.
+    body('phone').optional().isString()
+      .custom(v => /^44[1235789]\d{9}$/.test(v.replace(/\D/g, '')))
+      .withMessage('public.applications.invalid_phone'),
     body('ownsHouse').optional().isIn(['Yes', 'No']).withMessage('public.applications.invalid_owns_house'),
     // Not "must be true" — that's a frontend rule (can't reach Stage 5
     // without checking it). Here it's just as valid a partial-save value as
@@ -306,6 +311,13 @@ router.put(
         await enqueueSendgridSync(result.id);
       } catch (queueError) {
         logger.error('Failed to enqueue SendGrid sync job:', queueError);
+      }
+
+      // Matt's Brevo marketing list: only applicants who ticked consent.
+      try {
+        await enqueueBrevoSync(result.id);
+      } catch (queueError) {
+        logger.error('Failed to enqueue Brevo sync job:', queueError);
       }
 
       // From the offers page on, the confirmation emails are due immediately.

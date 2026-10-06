@@ -182,6 +182,15 @@ const startServer = async () => {
     }
 
     try {
+      const { initializeQueue: initializeBrevoQueue, initializeWorker: initializeBrevoWorker } = require('./services/brevo/brevoQueue');
+      initializeBrevoQueue();
+      initializeBrevoWorker();
+      logger.info('Brevo contact sync service initialized');
+    } catch (brevoError) {
+      logger.warn('Brevo contact sync initialization failed:', brevoError.message);
+    }
+
+    try {
       const { initializeQueue: initializeReminderQueue, initializeWorker: initializeReminderWorker, scheduleRepeatingCheck } = require('./services/reminders/reminderQueue');
       initializeReminderQueue();
       initializeReminderWorker();
@@ -204,10 +213,12 @@ const startServer = async () => {
       const { closeQueue } = require('./services/email');
       const { closeQueue: closeSalesforceQueue } = require('./services/salesforce/salesforceQueue');
       const { closeQueue: closeSendgridQueue } = require('./services/sendgrid/sendgridQueue');
+      const { closeQueue: closeBrevoQueue } = require('./services/brevo/brevoQueue');
       const { closeQueue: closeReminderQueue } = require('./services/reminders/reminderQueue');
       await closeQueue();
       await closeSalesforceQueue();
       await closeSendgridQueue();
+      await closeBrevoQueue();
       await closeReminderQueue();
       process.exit(0);
     });
@@ -217,10 +228,12 @@ const startServer = async () => {
       const { closeQueue } = require('./services/email');
       const { closeQueue: closeSalesforceQueue } = require('./services/salesforce/salesforceQueue');
       const { closeQueue: closeSendgridQueue } = require('./services/sendgrid/sendgridQueue');
+      const { closeQueue: closeBrevoQueue } = require('./services/brevo/brevoQueue');
       const { closeQueue: closeReminderQueue } = require('./services/reminders/reminderQueue');
       await closeQueue();
       await closeSalesforceQueue();
       await closeSendgridQueue();
+      await closeBrevoQueue();
       await closeReminderQueue();
       process.exit(0);
     });

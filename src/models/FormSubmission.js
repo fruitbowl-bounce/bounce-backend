@@ -157,6 +157,10 @@ const FormSubmission = sequelize.define('form_submissions', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  brevo_contact_email: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
   submitted_ip: {
     type: DataTypes.STRING(50),
     allowNull: true,
