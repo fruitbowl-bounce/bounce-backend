@@ -4,6 +4,7 @@ class MockEmailService {
   constructor() {
     this.from = process.env.SMTP_FROM || 'noreply@example.com';
     this.fromName = process.env.SMTP_FROM_NAME || 'Nebryx';
+    this.replyTo = process.env.EMAIL_REPLY_TO || undefined;
     this.emails = [];
   }
 
@@ -11,6 +12,7 @@ class MockEmailService {
     const mockEmail = {
       from: from || `${this.fromName} <${this.from}>`,
       to: Array.isArray(to) ? to.join(', ') : to,
+      replyTo: this.replyTo,
       subject,
       html,
       text,

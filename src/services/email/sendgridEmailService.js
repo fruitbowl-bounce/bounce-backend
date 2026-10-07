@@ -6,6 +6,7 @@ class SendgridEmailService {
     this.apiKey = process.env.SENDGRID_API_KEY;
     this.from = process.env.SENDGRID_FROM || process.env.SENDGRID_FROM_EMAIL;
     this.fromName = process.env.SENDGRID_FROM_NAME || 'Nebryx';
+    this.replyTo = process.env.EMAIL_REPLY_TO || undefined;
 
     if (!this.apiKey || !this.from) {
       throw new Error('Invalid SendGrid config: SENDGRID_API_KEY and SENDGRID_FROM are required');
@@ -22,6 +23,7 @@ class SendgridEmailService {
           email: from || this.from,
           name: fromName || this.fromName,
         },
+        replyTo: this.replyTo,
         subject,
         html,
         text,

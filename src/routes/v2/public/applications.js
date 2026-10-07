@@ -43,9 +43,11 @@ const resumeLimiter = rateLimit({
 // (selectedCompany/selectedOffer) arrive as JSON-encoded strings, see
 // parseJsonFields below. Stages 1-4 send plain JSON with no files — multer's
 // .fields() passes those straight through untouched.
+// +1 because busboy rejects a file that reaches the limit exactly, while the
+// form (Stage5 MAX_FILE_MB) allows files up to and including it.
 const multerFields = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: parseInt(process.env.UPLOAD_MAX_SIZE || '10485760') },
+  limits: { fileSize: parseInt(process.env.UPLOAD_MAX_SIZE || '10485760') + 1 },
 }).fields([
   { name: 'bankStatements', maxCount: 10 },
   { name: 'filedAccounts', maxCount: 10 },

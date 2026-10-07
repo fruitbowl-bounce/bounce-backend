@@ -10,6 +10,7 @@ class SmtpEmailService {
     this.password = process.env.SMTP_PASSWORD;
     this.from = process.env.SMTP_FROM || process.env.SMTP_USER;
     this.fromName = process.env.SMTP_FROM_NAME || 'Nebryx';
+    this.replyTo = process.env.EMAIL_REPLY_TO || undefined;
 
     if (!this.host || !this.user || !this.password) {
       throw new Error('Invalid SMTP config: SMTP_HOST, SMTP_USER, and SMTP_PASSWORD are required');
@@ -34,6 +35,7 @@ class SmtpEmailService {
       const mailOptions = {
         from: from || `${fromName || this.fromName} <${this.from || this.user}>`,
         to: Array.isArray(to) ? to.join(', ') : to,
+        replyTo: this.replyTo,
         subject,
         html,
         text,
