@@ -102,7 +102,9 @@ app.get('/api/v2/swagger.json', (req, res) => {
 if (process.env.STORAGE_TYPE === 'local') {
   const path = require('path');
   const express = require('express');
-  app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+  app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
+    setHeaders: (res) => res.set('X-Robots-Tag', 'noindex, nofollow, noarchive'),
+  }));
 }
 
 app.get('/health', (req, res) => {

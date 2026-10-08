@@ -23,6 +23,13 @@ const documentAccessLimiter = rateLimit({
   message: { errors: ['public.documents.rate_limited'] },
 });
 
+// Document links must never be indexed by search engines (BF-011, Joshua
+// 06/10). Set on every response, 404s included.
+router.use((req, res, next) => {
+  res.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  next();
+});
+
 /**
  * @swagger
  * /api/v2/nebryx/public/documents/{token}:

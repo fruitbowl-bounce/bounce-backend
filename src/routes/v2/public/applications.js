@@ -210,6 +210,11 @@ router.put(
       if (parseInt(stage) >= 2 && !selectedCompany?.number && !submission?.company_number) {
         return res.status(422).json({ errors: ['public.applications.company_number_required'] });
       }
+      // Offers need a director picked on Stage 3. If Companies House lists
+      // none, the form asks them to contact support instead (Joshua, 06/10).
+      if (parseInt(stage) >= 4 && !req.body.director && !submission?.director_name) {
+        return res.status(422).json({ errors: ['public.applications.director_required'] });
+      }
 
       // Stage 6 means "documents submitted": it needs a bank statement and the
       // filed accounts, either in this request or already on file.
