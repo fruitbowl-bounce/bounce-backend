@@ -92,6 +92,12 @@ const updateById = async (object, id, fields) => {
   if (!response.ok) throw await failure(`${object} ${id} update`, response);
 };
 
+const getById = async (object, id, fields) => {
+  const response = await restFetch(`sobjects/${object}/${id}?fields=${fields.join(',')}`);
+  if (!response.ok) throw await failure(`${object} ${id} read`, response);
+  return response.json();
+};
+
 // Whether this application's Lead has been converted, and into what. A
 // converted Lead can no longer be upserted (Salesforce no longer matches it
 // by external id, and a new Lead with the same ref is a DUPLICATE_VALUE),
@@ -188,6 +194,7 @@ ${optional}<urn:convertedStatus>${CONVERTED_STATUS}</urn:convertedStatus>
 module.exports = {
   upsertByRef,
   updateById,
+  getById,
   findConversion,
   findExistingContact,
   convertLead,

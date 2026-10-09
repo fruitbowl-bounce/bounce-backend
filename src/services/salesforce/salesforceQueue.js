@@ -1,13 +1,19 @@
 const { Queue, Worker } = require('bullmq');
+const { Op } = require('sequelize');
 const logger = require('../../utils/logger');
 const FormSubmission = require('../../models/FormSubmission');
 const FormSubmissionDocument = require('../../models/FormSubmissionDocument');
 const LoanOfferTemplate = require('../../models/LoanOfferTemplate');
 const {
-  upsertByRef, updateById, findConversion, findExistingContact, convertLead,
+  upsertByRef, updateById, getById, findConversion, findExistingContact, convertLead,
 } = require('./salesforceClient');
 const {
   OFFERS_SHOWN_STAGE,
+  DOCUMENTS_REQUIRED_STAGE,
+  APPLICANT_STATUSES,
+  documentsRequiredAfterMs,
+  applicantStatusFor,
+  isApplicantStatusAdvance,
   mapSubmissionToLead,
   mapSubmissionToOpportunity,
   mapSubmissionToContact,
@@ -28,6 +34,26 @@ const companyDetailsFields = async (submission) => {
     logger.warn(`Companies House lookup failed for ${submission.application_ref}: ${err.message}`);
     return {};
   }
+};
+
+// Applicant_Status__c (BF-012). Read first, because brokers set their own
+// later values by hand and those must never be overwritten; only a blank or
+// an earlier portal value is moved forward. Written on its own, after the
+// other fields, so a picklist mismatch can't block the rest of the sync.
+// `salesforce_applicant_status` records the furthest status handled, so the
+// read only happens when there's something new to set.
+const syncApplicantStatus = async (submission, opportunityId) => {
+  const next = applicantStatusFor(submission);
+  const handled = APPLICANT_STATUSES.indexOf(submission.salesforce_applicant_status);
+  if (!next || APPLICANT_STATUSES.indexOf(next) <= handled) return;
+
+  const { Applicant_Status__c: current } = await getById('Opportunity', opportunityId, ['Applicant_Status__c']);
+  if (isApplicantStatusAdvance(current, next)) {
+    await updateById('Opportunity', opportunityId, { Applicant_Status__c: next });
+  } else {
+    logger.info(`Applicant status for ${submission.application_ref} left as "${current}" (portal would set "${next}")`);
+  }
+  await submission.update({ salesforce_applicant_status: next }, { silent: true });
 };
 
 const convertedIds = (lead) => (lead && lead.isConverted
@@ -179,6 +205,7 @@ const initializeWorker = () => {
           ...mapSubmissionToAccount(submission),
           ...(await companyDetailsFields(submission)),
         });
+        await syncApplicantStatus(submission, conversion.opportunityId);
       }
 
       await submission.update({
@@ -236,6 +263,27 @@ const enqueueSalesforceSync = async (formSubmissionId) => {
   return job;
 };
 
+// Applications that picked an offer 24+ hours ago and haven't submitted
+// documents: queue a sync so the Opportunity moves to "Documents Required".
+// Runs on the reminder tick; each application is queued once, since the sync
+// records the status it handled.
+const enqueueDocumentsRequiredSyncs = async () => {
+  const overdue = await FormSubmission.findAll({
+    attributes: ['id'],
+    where: {
+      funnel_stage: DOCUMENTS_REQUIRED_STAGE,
+      offer_id: { [Op.ne]: null },
+      salesforce_opportunity_id: { [Op.ne]: null },
+      updated_at: { [Op.lte]: new Date(Date.now() - documentsRequiredAfterMs()) },
+      [Op.or]: [
+        { salesforce_applicant_status: null },
+        { salesforce_applicant_status: { [Op.notIn]: ['Documents Required', 'Documents Received'] } },
+      ],
+    },
+  });
+  for (const { id } of overdue) await enqueueSalesforceSync(id);
+};
+
 const closeQueue = async () => {
   if (salesforceWorker) {
     await salesforceWorker.close();
@@ -252,5 +300,6 @@ module.exports = {
   initializeQueue,
   initializeWorker,
   enqueueSalesforceSync,
+  enqueueDocumentsRequiredSyncs,
   closeQueue,
 };

@@ -148,6 +148,43 @@ const mapSubmissionToOpportunity = (submission, offerTemplates) => ({
   Filed_Accounts_Links__c: documentLinksBlock(submission.documents, 'filed_accounts', 'Filed Accounts'),
 });
 
+// Opportunity Applicant_Status__c (BF-012, Joshua 09/10), in order. The
+// portal only moves it forward and stops at Documents Received: brokers set
+// their own later values by hand, and those are never overwritten.
+const APPLICANT_STATUSES = [
+  'Indicative Offers Shown',
+  'Indicative Offer Selected',
+  'Documents Required',
+  'Documents Received',
+];
+const DOCUMENTS_REQUIRED_STAGE = 5;
+const documentsRequiredAfterMs = () =>
+  parseFloat(process.env.APPLICANT_STATUS_DOCUMENTS_REQUIRED_HOURS ?? 24) * 60 * 60 * 1000;
+
+// Offer picked and nothing submitted for 24 hours. Stage 5 is only saved
+// when an offer is picked (sync bookkeeping is silent), so updated_at is
+// when they picked it.
+const documentsOverdue = (submission, now = new Date()) =>
+  Number(submission.funnel_stage) === DOCUMENTS_REQUIRED_STAGE && !!submission.offer_id
+  && now - new Date(submission.updated_at) >= documentsRequiredAfterMs();
+
+const applicantStatusFor = (submission, now = new Date()) => {
+  if (submission.funnel_stage >= 6) return 'Documents Received';
+  if (documentsOverdue(submission, now)) return 'Documents Required';
+  if (submission.offer_id) return 'Indicative Offer Selected';
+  if (submission.funnel_stage >= OFFERS_SHOWN_STAGE) return 'Indicative Offers Shown';
+  return null;
+};
+
+// Whether `next` may replace what's on the Opportunity now: blank, or one of
+// ours that's earlier. Anything else is a broker's value (or already ahead).
+const isApplicantStatusAdvance = (current, next) => {
+  if (!next) return false;
+  if (!current) return true;
+  const from = APPLICANT_STATUSES.indexOf(current);
+  return from !== -1 && from < APPLICANT_STATUSES.indexOf(next);
+};
+
 // The applicant as a person. By conversion (Stage 4) the Stage 3 name is
 // always present; the email fallback only guards Salesforce's required
 // LastName.
@@ -254,6 +291,11 @@ const mapCompanyDetailsToAccount = ({ profile = {}, charges = [], pscs = [] }) =
 module.exports = {
   splitName,
   OFFERS_SHOWN_STAGE,
+  DOCUMENTS_REQUIRED_STAGE,
+  APPLICANT_STATUSES,
+  documentsRequiredAfterMs,
+  applicantStatusFor,
+  isApplicantStatusAdvance,
   mapSubmissionToLead,
   mapSubmissionToOpportunity,
   mapSubmissionToContact,

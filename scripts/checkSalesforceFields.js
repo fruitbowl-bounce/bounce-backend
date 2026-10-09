@@ -13,6 +13,7 @@ const {
   mapSubmissionToContact,
   mapSubmissionToAccount,
   mapCompanyDetailsToAccount,
+  APPLICANT_STATUSES,
 } = require('../src/services/salesforce/fieldMapper');
 
 // The mappers' keys are exactly the fields each write sends, so a blank
@@ -21,7 +22,8 @@ const {
 const blank = { funnel_stage: 6, email: '', documents: [] };
 const FIELDS = {
   Lead: [...Object.keys(mapSubmissionToLead(blank, [])), 'Application_Ref__c'],
-  Opportunity: Object.keys(mapSubmissionToOpportunity(blank, [])),
+  // Applicant_Status__c is written separately (BF-012).
+  Opportunity: [...Object.keys(mapSubmissionToOpportunity(blank, [])), 'Applicant_Status__c'],
   Contact: Object.keys(mapSubmissionToContact(blank)),
   Account: [...Object.keys(mapSubmissionToAccount(blank)), ...Object.keys(mapCompanyDetailsToAccount({}))],
 };
@@ -44,6 +46,12 @@ const FIELDS = {
       let issue = null;
       if (!field) issue = 'MISSING (or hidden from the integration user)';
       else if (name !== 'Application_Ref__c' && !field.updateable) issue = 'NOT EDITABLE by the integration user';
+      else if (name === 'Applicant_Status__c' && field.type === 'picklist') {
+        // The portal's four values must match the picklist exactly.
+        const values = field.picklistValues.filter((v) => v.active).map((v) => v.value);
+        const missing = APPLICANT_STATUSES.filter((v) => !values.includes(v));
+        if (missing.length) issue = `picklist is missing ${missing.map((v) => `"${v}"`).join(', ')}`;
+      }
       if (issue) {
         problems++;
         console.log(`  ${object}.${name}: ${issue}`);

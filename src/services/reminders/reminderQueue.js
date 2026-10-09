@@ -1,6 +1,7 @@
 const { Queue, Worker } = require('bullmq');
 const logger = require('../../utils/logger');
 const { runReminderCheck } = require('./reminderScheduler');
+const { enqueueDocumentsRequiredSyncs } = require('../salesforce/salesforceQueue');
 
 let reminderQueue = null;
 let reminderWorker = null;
@@ -48,6 +49,9 @@ const initializeWorker = () => {
     async (job) => {
       if (job.name !== TICK_JOB_NAME) return;
       await runReminderCheck();
+      // Same tick: Opportunity Applicant Status moves to "Documents Required"
+      // 24 hours after an offer is picked with nothing submitted (BF-012).
+      await enqueueDocumentsRequiredSyncs();
     },
     { connection: getRedisConnection(), concurrency: 1 }
   );

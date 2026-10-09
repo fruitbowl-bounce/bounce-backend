@@ -157,6 +157,11 @@ const FormSubmission = sequelize.define('form_submissions', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  // Furthest Opportunity Applicant_Status__c the sync has handled (BF-012).
+  salesforce_applicant_status: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+  },
   brevo_contact_email: {
     type: DataTypes.STRING(255),
     allowNull: true,
