@@ -17,6 +17,7 @@ const FormSubmissionDirector = require('../../../models/FormSubmissionDirector')
 const FormSubmissionDocument = require('../../../models/FormSubmissionDocument');
 const storageService = require('../../../services/storage/storageService');
 const { enqueueSalesforceSync } = require('../../../services/salesforce/salesforceQueue');
+const { notifyNewApplication } = require('../../../services/notifications/teamNotification');
 const { enqueueSendgridSync } = require('../../../services/sendgrid/sendgridQueue');
 const { enqueueBrevoSync } = require('../../../services/brevo/brevoQueue');
 const { triggerReminderCheck } = require('../../../services/reminders/reminderQueue');
@@ -309,6 +310,14 @@ router.put(
         await enqueueSalesforceSync(result.id);
       } catch (queueError) {
         logger.error('Failed to enqueue Salesforce sync job:', queueError);
+      }
+
+      // "New application" email to the team inbox once offers are shown,
+      // whether or not Salesforce is up.
+      try {
+        await notifyNewApplication(result);
+      } catch (notifyError) {
+        logger.error('Failed to queue new application email:', notifyError);
       }
 
       // Keeps the applicant's SendGrid contact (email nurture / reminder

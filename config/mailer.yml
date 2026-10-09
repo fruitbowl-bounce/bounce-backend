@@ -117,3 +117,11 @@ events:
       en:
         subject: "Documents received — we'll be in touch soon"
         template_path: reminder_documents_received.en.html
+
+  # To the Bounce team inbox (TEAM_NOTIFICATION_EMAIL), not the applicant.
+  - name: Team New Application
+    key: team.new_application
+    templates:
+      en:
+        subject: "New application: {{companyName}}, {{amount}} ({{applicationRef}})"
+        template_path: team_new_application.en.html

@@ -3,6 +3,7 @@ const logger = require('../../utils/logger');
 const emailService = require('./emailService');
 const templateService = require('./templateService');
 const yaml = require('yaml');
+const handlebars = require('handlebars');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -105,7 +106,8 @@ const initializeWorker = () => {
 
         await emailService.sendEmail({
           to,
-          subject: templateConfig.subject,
+          // Subjects can use {{fields}} too; plain-text, so no HTML escaping.
+          subject: handlebars.compile(templateConfig.subject, { noEscape: true })(data),
           html,
           text,
           from,
