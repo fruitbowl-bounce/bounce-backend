@@ -23,6 +23,9 @@ router.use('/places', placesRouter);
 const documentAccessRouter = require('./documentAccess');
 router.use('/documents', documentAccessRouter);
 
+const humanCheckRouter = require('./humanCheck');
+router.use('/human-check', humanCheckRouter);
+
 /**
  * @swagger
  * /api/v2/nebryx/public/ping:

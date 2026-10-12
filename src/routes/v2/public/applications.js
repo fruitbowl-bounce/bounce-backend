@@ -22,6 +22,8 @@ const { enqueueSendgridSync } = require('../../../services/sendgrid/sendgridQueu
 const { enqueueBrevoSync } = require('../../../services/brevo/brevoQueue');
 const { triggerReminderCheck } = require('../../../services/reminders/reminderQueue');
 const logger = require('../../../utils/logger');
+const { requireFormToken } = require('../../../services/formToken');
+const { tooManyNewApplications } = require('../../../services/usageLimits');
 const { monthlyRepaymentFor } = require('../../../utils/offerMath');
 
 // Unauthenticated + writes to the DB, so it gets its own tighter limit on
@@ -128,7 +130,7 @@ const setIfPresent = (target, body, bodyKey, column, transform = (v) => v) => {
  *   put:
  *     summary: Save or update a loan application (Bounce Funding funnel)
  *     tags: [Public]
- *     description: Called once per stage as the applicant progresses, not just at the end — creates the row on the first call (requires at least email) and fills in more fields on each subsequent call. Also accepts bank statement / filed accounts documents once the applicant reaches that stage.
+ *     description: Called once per stage as the applicant progresses, not just at the end — creates the row on the first call (requires at least email) and fills in more fields on each subsequent call. Also accepts bank statement / filed accounts documents once the applicant reaches that stage. Needs a valid X-Form-Token header (see /human-check).
  *     parameters:
  *       - in: path
  *         name: applicationRef
@@ -149,6 +151,9 @@ const setIfPresent = (target, body, bodyKey, column, transform = (v) => v) => {
 router.put(
   '/:applicationRef',
   submitLimiter,
+  // Before the upload is read, so a request without a token is turned away
+  // before its files are buffered.
+  requireFormToken,
   uploadFields,
   parseJsonFields,
   [
@@ -175,6 +180,7 @@ router.put(
     body('selectedCompany').optional().isObject().withMessage('public.applications.missing_company'),
     body('selectedCompany.directors').optional().isArray(),
     body('selectedOffer').optional().isObject().withMessage('public.applications.missing_offer'),
+    body('website').optional().isString(),
   ],
   async (req, res, next) => {
     try {
@@ -195,11 +201,22 @@ router.put(
       const applicationRef = req.params.applicationRef;
       const { stage, selectedCompany, selectedOffer } = req.body;
 
+      // Honeypot: a field hidden from people that form-filling bots fill in.
+      // The bot gets the usual answer, so it can't tell, but nothing is saved.
+      if (req.body.website) {
+        logger.warn(`Honeypot filled on application ${applicationRef} from ${req.ip}, not saved`);
+        return res.status(201).json({ applicationRef });
+      }
+
       let submission = await FormSubmission.findOne({ where: { application_ref: applicationRef } });
       const isNew = !submission;
 
       if (isNew && !req.body.email) {
         return res.status(422).json({ errors: ['public.applications.email_required_for_new_application'] });
+      }
+      if (isNew && await tooManyNewApplications(req.ip)) {
+        logger.warn(`Too many new applications from ${req.ip}, ${applicationRef} not created`);
+        return res.status(429).json({ errors: ['public.applications.rate_limited'] });
       }
 
       // Only Companies House companies can apply (Joshua, 02/10): a company

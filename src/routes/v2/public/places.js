@@ -10,6 +10,8 @@ const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const { query, param, validationResult } = require('express-validator');
 const logger = require('../../../utils/logger');
+const { requireFormToken } = require('../../../services/formToken');
+const { dailyCap } = require('../../../services/usageLimits');
 
 const AUTOCOMPLETE_URL = 'https://places.googleapis.com/v1/places:autocomplete';
 const detailsUrl = (placeId) => `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`;
@@ -23,6 +25,9 @@ const placesLimiter = rateLimit({
   max: 60,
   message: { errors: ['public.places.rate_limited'] },
 });
+
+// Google bills every call, so autocomplete and details share one daily cap.
+const placesDailyCap = dailyCap('places', 'Google Places address lookups', 'PLACES_DAILY_CAP', 2000);
 
 function requireApiKey(res) {
   if (!process.env.GOOGLE_PLACES_API_KEY) {
@@ -38,7 +43,7 @@ function requireApiKey(res) {
  *   get:
  *     summary: UK address autocomplete suggestions (Google Places API, New)
  *     tags: [Public]
- *     description: Server-side proxy to Places API (New) autocomplete, restricted to GB addresses. The API key is attached here so it never reaches the browser.
+ *     description: Server-side proxy to Places API (New) autocomplete, restricted to GB addresses. The API key is attached here so it never reaches the browser. Needs a valid X-Form-Token header (see /human-check).
  *     parameters:
  *       - in: query
  *         name: input
@@ -55,6 +60,8 @@ function requireApiKey(res) {
 router.get(
   '/autocomplete',
   placesLimiter,
+  requireFormToken,
+  placesDailyCap,
   [query('input').isString().isLength({ min: 3 }), query('sessiontoken').optional().isString()],
   async (req, res) => {
     const errors = validationResult(req);
@@ -120,6 +127,8 @@ router.get(
 router.get(
   '/details/:placeId',
   placesLimiter,
+  requireFormToken,
+  placesDailyCap,
   [param('placeId').isString().notEmpty(), query('sessiontoken').optional().isString()],
   async (req, res) => {
     const errors = validationResult(req);

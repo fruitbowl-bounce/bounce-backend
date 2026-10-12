@@ -125,3 +125,18 @@ events:
       en:
         subject: "New application: {{companyName}}, {{amount}} ({{applicationRef}})"
         template_path: team_new_application.en.html
+
+  # Alerts to OPS_ALERT_EMAIL (or TEAM_NOTIFICATION_EMAIL when unset).
+  - name: Ops Usage Alert
+    key: ops.usage_alert
+    templates:
+      en:
+        subject: "{{#if reached}}Daily limit reached{{else}}Unusual volume{{/if}}: {{label}}"
+        template_path: ops_usage_alert.en.html
+
+  - name: Ops Salesforce Sync Failed
+    key: ops.salesforce_sync_failed
+    templates:
+      en:
+        subject: "Salesforce sync failed: {{companyName}} ({{applicationRef}})"
+        template_path: ops_salesforce_sync_failed.en.html

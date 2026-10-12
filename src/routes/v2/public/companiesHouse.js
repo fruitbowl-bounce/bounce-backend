@@ -9,6 +9,8 @@ const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const logger = require('../../../utils/logger');
+const { requireFormToken } = require('../../../services/formToken');
+const { dailyCap } = require('../../../services/usageLimits');
 
 const UPSTREAM = 'https://api.company-information.service.gov.uk';
 
@@ -20,22 +22,43 @@ const companiesHouseLimiter = rateLimit({
   message: { errors: ['public.companies_house.rate_limited'] },
 });
 
+// Calls on our API key, so the default leaves plenty of headroom under
+// Companies House's own limit (600 calls per 5 minutes).
+const companiesHouseDailyCap = dailyCap('companies_house', 'Companies House lookups', 'COMPANIES_HOUSE_DAILY_CAP', 5000);
+
+// Only the lookups the application form makes: company search, a company's
+// profile (for a UK branch's parent) and its officers.
+const ALLOWED_PATHS = [
+  /^\/search\/companies$/,
+  /^\/company\/[A-Z0-9]{8}$/i,
+  /^\/company\/[A-Z0-9]{8}\/officers$/i,
+];
+const allowedPath = (req, res, next) => (ALLOWED_PATHS.some((pattern) => pattern.test(req.path))
+  ? next()
+  : res.status(404).json({ errors: ['public.companies_house.not_found'] }));
+
 /**
  * @swagger
  * /api/v2/nebryx/public/companies-house/{path}:
  *   get:
  *     summary: Proxy to the Companies House REST API
  *     tags: [Public]
- *     description: Server-side proxy that attaches the Companies House API key (as HTTP Basic auth) so it never reaches the browser. Mirrors whatever path/query Companies House itself expects, e.g. /search/companies?q=... or /company/{number}/officers. Same design as the dev-only Vite proxy this replaces, so it also works in the production build.
+ *     description: Server-side proxy that attaches the Companies House API key (as HTTP Basic auth) so it never reaches the browser. Only passes on /search/companies?q=..., /company/{number} and /company/{number}/officers, and only with a valid X-Form-Token header (see /human-check). Same design as the dev-only Vite proxy this replaces, so it also works in the production build.
  *     responses:
  *       200:
  *         description: Companies House response, passed through as-is
+ *       403:
+ *         description: Missing or expired form token
+ *       404:
+ *         description: Path not one the application form uses
+ *       429:
+ *         description: Rate limit or daily cap reached
  *       500:
  *         description: COMPANIES_HOUSE_API_KEY not configured
  *       502:
  *         description: Companies House unreachable
  */
-router.get('/*', companiesHouseLimiter, async (req, res) => {
+router.get('/*', companiesHouseLimiter, allowedPath, requireFormToken, companiesHouseDailyCap, async (req, res) => {
   if (!process.env.COMPANIES_HOUSE_API_KEY) {
     return res.status(500).json({ errors: ['public.companies_house.not_configured'] });
   }

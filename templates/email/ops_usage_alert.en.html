@@ -1,0 +1,15 @@
+<div style="background-color:#F3F4F6;padding:24px 16px;font-family:Arial,Helvetica,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;background-color:#ffffff;border:1px solid #e5e7eb;">
+    <div style="padding:14px 16px;border-bottom:1px solid #e5e7eb;font-size:15px;color:#111827;">
+      {{#if reached}}Daily limit reached{{else}}Unusual volume{{/if}}: {{label}}
+    </div>
+    <div style="padding:14px 16px;font-size:14px;color:#374151;line-height:1.5;">
+      {{#if reached}}
+      <p style="margin:0 0 12px;">The application form has used all <strong>{{cap}}</strong> {{label}} allowed for {{date}} (UTC). Further lookups are refused until midnight UTC, so applicants can't search until then.</p>
+      {{else}}
+      <p style="margin:0 0 12px;">The application form has made <strong>{{used}}</strong> of the <strong>{{cap}}</strong> {{label}} allowed for {{date}} (UTC). That's more than normal and may be a bot.</p>
+      {{/if}}
+      <p style="margin:0;">If this is real traffic, raise <code>{{envVar}}</code> in the backend settings.</p>
+    </div>
+  </div>
+</div>

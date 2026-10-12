@@ -26,6 +26,11 @@ const adminRoutes = require('./routes/v2/admin');
 
 const app = express();
 
+// Requests arrive through nginx, so without this req.ip is nginx's own
+// address: every visitor shares one rate-limit bucket and submitted_ip is
+// wrong. The value is how many proxies sit in front of the backend.
+app.set('trust proxy', parseInt(process.env.TRUST_PROXY_HOPS || '1'));
+
 const redisClient = redis.createClient({
   socket: {
     host: process.env.REDIS_HOST || 'localhost',

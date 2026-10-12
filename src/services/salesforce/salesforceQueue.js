@@ -21,6 +21,7 @@ const {
   mapCompanyDetailsToAccount,
 } = require('./fieldMapper');
 const { fetchCompanyDetails } = require('../companiesHouse');
+const { sendAlert } = require('../usageLimits');
 
 // Companies House details for the Account. A lookup failure (their API
 // down, rate limited) shouldn't fail the whole sync, so the Account just
@@ -133,11 +134,13 @@ const initializeQueue = () => {
 
   salesforceQueue = new Queue('salesforce-sync', {
     connection: getRedisConnection(),
+    // Retries for about 30 minutes (15s, 30s, 1m ... 16m), long enough to
+    // ride out a short Salesforce outage before the team is alerted.
     defaultJobOptions: {
-      attempts: 3,
+      attempts: 8,
       backoff: {
         type: 'exponential',
-        delay: 2000,
+        delay: 15000,
       },
       removeOnComplete: {
         age: 3600,
@@ -238,10 +241,23 @@ const initializeWorker = () => {
     try {
       const submission = await FormSubmission.findByPk(job.data.formSubmissionId);
       if (submission) {
+        // Alert once per failure: further failed jobs for the same
+        // application find it already marked, and a successful sync clears it.
+        const alreadyFailed = submission.status === 'sync_failed';
         await submission.update({
           status: 'sync_failed',
           salesforce_sync_error: err.message,
         }, { silent: true });
+        if (!alreadyFailed) {
+          const protocol = process.env.APP_PROTOCOL || 'http';
+          await sendAlert('ops.salesforce_sync_failed', {
+            applicationRef: submission.application_ref,
+            companyName: submission.company_name || submission.email,
+            error: err.message,
+            attempts: job.attemptsMade,
+            adminUrl: process.env.APP_DOMAIN ? `${protocol}://${process.env.APP_DOMAIN}/admin` : null,
+          });
+        }
       }
     } catch (updateError) {
       logger.error('Failed to record Salesforce sync failure on form_submission:', updateError);
