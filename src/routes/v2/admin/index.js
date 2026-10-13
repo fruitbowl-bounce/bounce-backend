@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { adminAuth } = require('../../../middleware/adminAuth');
+const { adminAuth, viewerReadOnly } = require('../../../middleware/adminAuth');
 
 const usersRouter = require('./users');
 const permissionsRouter = require('./permissions');
@@ -9,6 +9,7 @@ const applicationsRouter = require('./applications');
 const loanOfferTemplatesRouter = require('./loanOfferTemplates');
 
 router.use(adminAuth);
+router.use(viewerReadOnly);
 
 // Self-contained session probe for the admin panel — deliberately not
 // /resource/users/me, which goes through the generic `authorize` middleware

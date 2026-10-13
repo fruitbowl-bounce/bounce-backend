@@ -1,7 +1,8 @@
 const logger = require('../../utils/logger');
 const FormSubmissionReminderEmail = require('../../models/FormSubmissionReminderEmail');
 const { sendEmail } = require('../email');
-const { OFFERS_SHOWN_STAGE } = require('../salesforce/fieldMapper');
+const { OFFERS_SHOWN_STAGE, sicCodeLines } = require('../salesforce/fieldMapper');
+const { fetchCompanyProfile } = require('../companiesHouse');
 
 // "New application" email to the Bounce team inbox once an applicant reaches
 // the offers page, as a plain list of what they entered (like the Gravity
@@ -18,7 +19,7 @@ const ukTime = (date) => new Date(date).toLocaleString('en-GB', {
 const ukDate = (value) => (value ? value.split('-').reverse().join('/') : '');
 const yesNo = (value) => (value == null ? '' : value ? 'Yes' : 'No');
 
-const rowsFor = (s) => [
+const rowsFor = (s, sicCodes) => [
   ['Name', s.director_name],
   ['Email', s.email],
   ['Phone', s.phone],
@@ -26,6 +27,7 @@ const rowsFor = (s) => [
   ['Home address', s.home_address],
   ['Company', [s.company_name, s.company_number && `(${s.company_number})`].filter(Boolean).join(' ')],
   ['Registered address', s.company_address],
+  ['SIC codes', sicCodes],
   ['Amount', pounds(s.loan_amount)],
   ['Funding purpose', s.funding_purpose],
   ['Trading time', s.trading_time],
@@ -51,6 +53,15 @@ const notifyNewApplication = async (submission) => {
     throw error;
   }
 
+  // From Companies House, like the Account's SIC codes in Salesforce. A
+  // failed lookup only leaves the row blank.
+  let sicCodes = '';
+  try {
+    sicCodes = sicCodeLines(await fetchCompanyProfile(submission.company_number) || {}).join('; ');
+  } catch (error) {
+    logger.warn(`SIC codes not found for ${submission.application_ref}: ${error.message}`);
+  }
+
   try {
     const protocol = process.env.APP_PROTOCOL || 'http';
     await sendEmail({
@@ -61,7 +72,7 @@ const notifyNewApplication = async (submission) => {
         applicationRef: submission.application_ref,
         companyName: submission.company_name || submission.email,
         amount: pounds(submission.loan_amount),
-        rows: rowsFor(submission),
+        rows: rowsFor(submission, sicCodes),
         adminUrl: process.env.APP_DOMAIN ? `${protocol}://${process.env.APP_DOMAIN}/admin` : null,
       },
     });

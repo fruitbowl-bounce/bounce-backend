@@ -25,7 +25,7 @@ const adminAuth = async (req, res, next) => {
 
     validateSession(req, session);
 
-    if (!['admin', 'superadmin'].includes(user.role)) {
+    if (!['admin', 'superadmin', 'viewer'].includes(user.role)) {
       return res.status(403).json({ errors: ['authz.invalid_permission'] });
     }
 
@@ -40,6 +40,17 @@ const adminAuth = async (req, res, next) => {
   }
 };
 
+// A viewer (e.g. Matt's accountant, 13/10) can only read the applications
+// list and each application's details: no documents, no Retry sync, no
+// offer templates or admin accounts. Anything not listed here is refused.
+const VIEWER_ALLOWED = [/^\/me$/, /^\/applications$/, /^\/applications\/\d+$/];
+
+const viewerReadOnly = (req, res, next) => {
+  if (req.user.role !== 'viewer') return next();
+  if (req.method === 'GET' && VIEWER_ALLOWED.some((path) => path.test(req.path))) return next();
+  return res.status(403).json({ errors: ['authz.invalid_permission'] });
+};
+
 const requireSuperadmin = (req, res, next) => {
   if (req.user.role !== 'superadmin') {
     return res.status(403).json({ errors: ['authz.invalid_permission'] });
@@ -47,7 +58,7 @@ const requireSuperadmin = (req, res, next) => {
   next();
 };
 
-module.exports = { adminAuth, requireSuperadmin };
+module.exports = { adminAuth, viewerReadOnly, requireSuperadmin };
 
 
 

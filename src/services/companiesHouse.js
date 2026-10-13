@@ -4,6 +4,7 @@ const UPSTREAM = 'https://api.company-information.service.gov.uk';
 
 const get = async (path) => {
   const response = await fetch(`${UPSTREAM}${path}`, {
+    signal: AbortSignal.timeout(10000),
     headers: {
       Authorization: 'Basic ' + Buffer.from(`${process.env.COMPANIES_HOUSE_API_KEY}:`).toString('base64'),
       Accept: 'application/json',
@@ -35,4 +36,10 @@ const fetchCompanyDetails = async (companyNumber) => {
   return { profile, charges: charges?.items || [], pscs: pscs?.items || [] };
 };
 
-module.exports = { fetchCompanyDetails };
+// Just the company profile (one call), for the SIC codes in the team email.
+const fetchCompanyProfile = async (companyNumber) => {
+  if (!process.env.COMPANIES_HOUSE_API_KEY || !companyNumber) return null;
+  return get(`/company/${encodeURIComponent(String(companyNumber).trim().toUpperCase())}`);
+};
+
+module.exports = { fetchCompanyDetails, fetchCompanyProfile };

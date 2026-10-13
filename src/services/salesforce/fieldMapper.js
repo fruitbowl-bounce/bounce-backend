@@ -260,6 +260,10 @@ const natureOfControl = (nature) => {
 // Registered details from Companies House (see services/companiesHouse.js).
 // Kept separate from mapSubmissionToAccount so a failed lookup leaves the
 // values already in Salesforce alone instead of blanking them.
+// "56101 Licensed restaurants", one per SIC code on the profile.
+const sicCodeLines = (profile = {}) =>
+  (profile.sic_codes || []).map((code) => `${code} ${SIC_DESCRIPTIONS[code] || ''}`.trim());
+
 const mapCompanyDetailsToAccount = ({ profile = {}, charges = [], pscs = [] }) => {
   const accounts = profile.accounts || {};
   // Only charges still in force: satisfied ones are old, repaid lenders.
@@ -267,7 +271,7 @@ const mapCompanyDetailsToAccount = ({ profile = {}, charges = [], pscs = [] }) =
   return {
     Company_Status__c: COMPANY_STATUS[profile.company_status] || profile.company_status || null,
     Incorporation_Date__c: profile.date_of_creation || null,
-    SIC_Codes__c: longText((profile.sic_codes || []).map((code) => `${code} ${SIC_DESCRIPTIONS[code] || ''}`.trim()), 1000),
+    SIC_Codes__c: longText(sicCodeLines(profile), 1000),
     Confirmation_Statement_Overdue__c: !!profile.confirmation_statement?.overdue,
     Accounts_Overdue__c: !!(accounts.overdue || accounts.next_accounts?.overdue),
     Last_Accounts_Made_Up_To__c: accounts.last_accounts?.made_up_to || null,
@@ -301,4 +305,5 @@ module.exports = {
   mapSubmissionToContact,
   mapSubmissionToAccount,
   mapCompanyDetailsToAccount,
+  sicCodeLines,
 };
