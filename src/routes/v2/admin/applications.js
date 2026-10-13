@@ -16,6 +16,7 @@ const FormSubmissionReminderEmail = require('../../../models/FormSubmissionRemin
 const storageService = require('../../../services/storage/storageService');
 const { enqueueSalesforceSync } = require('../../../services/salesforce/salesforceQueue');
 const { computeEmailStatus, summarize } = require('../../../services/reminders/reminderStatus');
+const { buildSalesforcePreview } = require('../../../services/salesforce/salesforcePreview');
 const logger = require('../../../utils/logger');
 
 const paginate = (page = 1, limit = 25) => {
@@ -199,6 +200,53 @@ router.get(
       return res.json(plain);
     } catch (error) {
       logger.error('Admin get application error:', error);
+      next(error);
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/v2/nebryx/admin/applications/{id}/salesforce-fields:
+ *   get:
+ *     summary: Every field the Salesforce sync writes for an application (Admin)
+ *     tags: [Admin]
+ *     security:
+ *       - SessionAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Fields per Salesforce object, as the sync would send them now
+ *       404:
+ *         description: Not found
+ */
+// Separate from the detail call, so the page shows straight away while
+// Companies House answers.
+router.get(
+  '/:id/salesforce-fields',
+  [param('id').isInt()],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(422).json({ errors: errors.array().map(e => e.msg) });
+      }
+
+      const submission = await FormSubmission.findByPk(req.params.id, {
+        include: [{ model: FormSubmissionDocument, as: 'documents' }],
+      });
+      if (!submission) {
+        return res.status(404).json({ errors: ['admin.applications.not_found'] });
+      }
+
+      return res.json(await buildSalesforcePreview(submission));
+    } catch (error) {
+      logger.error('Admin Salesforce fields error:', error);
       next(error);
     }
   }

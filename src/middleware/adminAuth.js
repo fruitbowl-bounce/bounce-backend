@@ -41,12 +41,13 @@ const adminAuth = async (req, res, next) => {
 };
 
 // A viewer (e.g. Matt's accountant, 13/10) can only read the applications
-// list, each application's details and its documents: no Retry sync, no
+// list, each application's details (incl. what goes to Salesforce) and its documents: no Retry sync, no
 // offer templates or admin accounts. Anything not listed here is refused.
 const VIEWER_ALLOWED = [
   /^\/me$/,
   /^\/applications$/,
   /^\/applications\/\d+$/,
+  /^\/applications\/\d+\/salesforce-fields$/,
   /^\/applications\/\d+\/documents\/\d+\/url$/,
 ];
 

@@ -306,4 +306,5 @@ module.exports = {
   mapSubmissionToAccount,
   mapCompanyDetailsToAccount,
   sicCodeLines,
+  documentPublicUrl,
 };
