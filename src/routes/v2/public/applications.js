@@ -25,6 +25,7 @@ const logger = require('../../../utils/logger');
 const { requireFormToken } = require('../../../services/formToken');
 const { tooManyNewApplications } = require('../../../services/usageLimits');
 const { monthlyRepaymentFor } = require('../../../utils/offerMath');
+const { isValidDateOfBirth } = require('../../../utils/dateOfBirth');
 
 // Unauthenticated + writes to the DB, so it gets its own tighter limit on
 // top of the global one in server.js. Higher than before since a single
@@ -172,6 +173,13 @@ router.put(
     body('phone').optional().isString()
       .custom(v => /^44[1235789]\d{9}$/.test(v.replace(/\D/g, '')))
       .withMessage('public.applications.invalid_phone'),
+    // YYYY-MM-DD, a real date, aged 18 to 100. Same rule as
+    // bounce-funding/src/validation.ts. Not required here: browsers still on
+    // the form from before it was added would lose their whole Stage 3 save.
+    // Blank is allowed for the same reason (Stage 5 sends every field).
+    body('dateOfBirth').optional().isString()
+      .custom((v) => v === '' || isValidDateOfBirth(v))
+      .withMessage('public.applications.invalid_date_of_birth'),
     body('ownsHouse').optional().isIn(['Yes', 'No']).withMessage('public.applications.invalid_owns_house'),
     // Not "must be true" — that's a frontend rule (can't reach Stage 5
     // without checking it). Here it's just as valid a partial-save value as
@@ -258,6 +266,8 @@ router.put(
         setIfPresent(fields, req.body, 'director', 'director_name');
         setIfPresent(fields, req.body, 'address', 'home_address');
         setIfPresent(fields, req.body, 'phone', 'phone');
+        // Blank never clears one already saved.
+        if (req.body.dateOfBirth) fields.date_of_birth = req.body.dateOfBirth;
         setIfPresent(fields, req.body, 'ownsHouse', 'owns_property', (v) => v === 'Yes');
         setIfPresent(fields, req.body, 'directorConfirm', 'director_confirmed', toBool);
 
@@ -427,6 +437,7 @@ router.get('/resume/:resumeToken', resumeLimiter, async (req, res, next) => {
       director: submission.director_name || '',
       address: submission.home_address || '',
       phone: submission.phone || '',
+      dateOfBirth: submission.date_of_birth || '',
       ownsHouse: submission.owns_property === null ? '' : (submission.owns_property ? 'Yes' : 'No'),
       directorConfirm: submission.director_confirmed,
       selectedOffer: submission.offer_id ? {

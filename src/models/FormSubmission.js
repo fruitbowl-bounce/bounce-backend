@@ -70,6 +70,10 @@ const FormSubmission = sequelize.define('form_submissions', {
     type: DataTypes.STRING(50),
     allowNull: true,
   },
+  date_of_birth: {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+  },
   owns_property: {
     type: DataTypes.BOOLEAN,
     allowNull: true,

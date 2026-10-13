@@ -36,10 +36,12 @@ const increment = async (key, windowSeconds) => {
   }
 };
 
-// Goes to OPS_ALERT_EMAIL, or the team inbox when that isn't set.
+// Goes to OPS_ALERT_EMAIL (comma-separated for several), or the team inbox
+// when that isn't set.
 const sendAlert = async (eventKey, data) => {
-  const to = process.env.OPS_ALERT_EMAIL || process.env.TEAM_NOTIFICATION_EMAIL;
-  if (!to) {
+  const to = (process.env.OPS_ALERT_EMAIL || process.env.TEAM_NOTIFICATION_EMAIL || '')
+    .split(',').map((address) => address.trim()).filter(Boolean);
+  if (to.length === 0) {
     logger.warn(`No OPS_ALERT_EMAIL or TEAM_NOTIFICATION_EMAIL, alert ${eventKey} not sent`, data);
     return;
   }

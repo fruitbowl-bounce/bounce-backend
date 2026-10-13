@@ -14,12 +14,15 @@ const pounds = (value) => (value != null && value !== '' ? `£${Number(value).to
 const ukTime = (date) => new Date(date).toLocaleString('en-GB', {
   timeZone: 'Europe/London', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
 });
+// DATEONLY comes back as "YYYY-MM-DD".
+const ukDate = (value) => (value ? value.split('-').reverse().join('/') : '');
 const yesNo = (value) => (value == null ? '' : value ? 'Yes' : 'No');
 
 const rowsFor = (s) => [
   ['Name', s.director_name],
   ['Email', s.email],
   ['Phone', s.phone],
+  ['Date of birth', ukDate(s.date_of_birth)],
   ['Home address', s.home_address],
   ['Company', [s.company_name, s.company_number && `(${s.company_number})`].filter(Boolean).join(' ')],
   ['Registered address', s.company_address],

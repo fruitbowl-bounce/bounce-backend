@@ -57,6 +57,18 @@ const syncApplicantStatus = async (submission, opportunityId) => {
   await submission.update({ salesforce_applicant_status: next }, { silent: true });
 };
 
+// Contact Birthdate (standard field) for the Stage 3 date of birth. Written
+// on its own, like the status above: if the integration user can't edit it in
+// the client's org, the rest of the sync still goes through.
+const syncBirthdate = async (submission, contactId) => {
+  if (!submission.date_of_birth) return;
+  try {
+    await updateById('Contact', contactId, { Birthdate: submission.date_of_birth });
+  } catch (error) {
+    logger.warn(`Contact Birthdate not saved for ${submission.application_ref}: ${error.message}`);
+  }
+};
+
 const convertedIds = (lead) => (lead && lead.isConverted
   ? { opportunityId: lead.opportunityId, contactId: lead.contactId, accountId: lead.accountId }
   : null);
@@ -204,6 +216,7 @@ const initializeWorker = () => {
       if (conversion) {
         await updateById('Opportunity', conversion.opportunityId, mapSubmissionToOpportunity(submission, offerTemplates));
         await updateById('Contact', conversion.contactId, mapSubmissionToContact(submission));
+        await syncBirthdate(submission, conversion.contactId);
         await updateById('Account', conversion.accountId, {
           ...mapSubmissionToAccount(submission),
           ...(await companyDetailsFields(submission)),

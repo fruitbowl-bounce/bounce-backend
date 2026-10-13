@@ -24,7 +24,8 @@ const FIELDS = {
   Lead: [...Object.keys(mapSubmissionToLead(blank, [])), 'Application_Ref__c'],
   // Applicant_Status__c is written separately (BF-012).
   Opportunity: [...Object.keys(mapSubmissionToOpportunity(blank, [])), 'Applicant_Status__c'],
-  Contact: Object.keys(mapSubmissionToContact(blank)),
+  // Birthdate is written separately (date of birth, 13/10).
+  Contact: [...Object.keys(mapSubmissionToContact(blank)), 'Birthdate'],
   Account: [...Object.keys(mapSubmissionToAccount(blank)), ...Object.keys(mapCompanyDetailsToAccount({}))],
 };
 
