@@ -11,7 +11,7 @@ const redisClient = redis.createClient({
 redisClient.connect().catch(console.error);
 
 const createSession = async (req, user, csrfToken) => {
-  const sessionExpireTime = parseInt(process.env.SESSION_EXPIRE_TIME || '3600');
+  const sessionExpireTime = parseInt(process.env.SESSION_EXPIRE_TIME || '21600');
   const expireTime = Math.floor(Date.now() / 1000) + sessionExpireTime;
 
   req.session.uid = user.uid;

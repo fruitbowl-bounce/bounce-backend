@@ -66,6 +66,23 @@ const FormSubmission = sequelize.define('form_submissions', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  // The same address in parts (BF-057). Blank on applications from before.
+  home_house: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  home_street: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+  },
+  home_town: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  home_postcode: {
+    type: DataTypes.STRING(10),
+    allowNull: true,
+  },
   phone: {
     type: DataTypes.STRING(50),
     allowNull: true,

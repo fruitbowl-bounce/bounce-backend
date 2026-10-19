@@ -83,7 +83,7 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: parseInt(process.env.SESSION_EXPIRE_TIME || '3600') * 1000,
+    maxAge: parseInt(process.env.SESSION_EXPIRE_TIME || '21600') * 1000,
   },
   name: 'nebryx.session',
 }));

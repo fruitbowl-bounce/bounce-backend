@@ -80,7 +80,7 @@ events:
     key: offers.available.reminder1
     templates:
       en:
-        subject: "Great news — we've found 3 funding options for you"
+        subject: "Great news — we've found {{fundingOptions}} for you"
         template_path: reminder_offers_1.en.html
 
   - name: Funding Options Reminder 2

@@ -1,6 +1,8 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
+const LEGACY_TAG_VARIANTS = { recommended: 'purple', value: 'amber', fast: 'blue' };
+
 // Admin-editable funding options shown on Stage 4 of the public application
 // funnel. `features` is stored as a JSON-encoded string (TEXT column, no
 // native JSON type dependency) and parsed/stringified at the model boundary.
@@ -59,9 +61,15 @@ const LoanOfferTemplate = sequelize.define('loan_offer_templates', {
     type: DataTypes.STRING(30),
     allowNull: true,
   },
+  // purple, amber, blue or green (BF-060). Rows not yet migrated from the old
+  // names read as their colour.
   tag_variant: {
     type: DataTypes.STRING(20),
     allowNull: true,
+    get() {
+      const value = this.getDataValue('tag_variant');
+      return LEGACY_TAG_VARIANTS[value] ?? value;
+    },
   },
   sort_order: {
     type: DataTypes.INTEGER,

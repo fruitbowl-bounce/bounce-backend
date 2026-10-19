@@ -75,43 +75,29 @@ const validateCSRF = (req, session) => {
   }
 };
 
+// A session ends when it times out or the browser changes. An IP change only
+// gets logged (BF-048): behind Cloudflare the address we see can move between
+// Cloudflare's own ranges, and mobile and office connections switch address
+// too, so ending the session on it logged admins out every few minutes.
 const validateSession = (req, session) => {
   const userAgent = req.headers['user-agent'];
-  const expireTime = session.expireTime;
-  const userIP = session.userIP;
 
-      const currentIP = getRemoteIP(req);
-      const sessionIPRange = findIP(userIP);
-      const sessionIPBase = sessionIPRange.split('/')[0];
-      
-      let ipMatches = false;
-      try {
-        const currentIPAddr = ipaddr.process(currentIP);
-        const sessionIPAddr = ipaddr.process(userIP);
-        
-        if (currentIPAddr.kind() === 'ipv4' && sessionIPAddr.kind() === 'ipv4') {
-          const currentParts = currentIPAddr.octets;
-          const sessionParts = sessionIPAddr.octets;
-          ipMatches = currentParts[0] === sessionParts[0] && currentParts[1] === sessionParts[1];
-        } else if (currentIPAddr.kind() === 'ipv6' && sessionIPAddr.kind() === 'ipv6') {
-          const currentParts = currentIPAddr.parts;
-          const sessionParts = sessionIPAddr.parts;
-          ipMatches = currentParts[0] === sessionParts[0] && 
-                     currentParts[1] === sessionParts[1] &&
-                     currentParts[2] === sessionParts[2] &&
-                     currentParts[3] === sessionParts[3];
-        }
-      } catch (e) {
-        ipMatches = currentIP === userIP;
-      }
-      
-      if (userAgent !== session.userAgent ||
-          Date.now() / 1000 >= expireTime ||
-          !ipMatches) {
+  if (Date.now() / 1000 >= session.expireTime) {
+    logger.info(`Session for uid ${session.uid} ended: timed out`);
+    throw new Error('authz.client_session_mismatch');
+  }
+  if (userAgent !== session.userAgent) {
+    logger.info(`Session for uid ${session.uid} ended: browser changed from "${session.userAgent}" to "${userAgent}"`);
     throw new Error('authz.client_session_mismatch');
   }
 
-  const sessionExpireTime = parseInt(process.env.SESSION_EXPIRE_TIME || '3600');
+  const currentIP = getRemoteIP(req);
+  if (findIP(currentIP) !== findIP(session.userIP)) {
+    logger.info(`Session for uid ${session.uid} moved from IP ${session.userIP} to ${currentIP}, kept`);
+    session.userIP = currentIP;
+  }
+
+  const sessionExpireTime = parseInt(process.env.SESSION_EXPIRE_TIME || '21600');
   session.expireTime = Math.floor(Date.now() / 1000) + sessionExpireTime;
 };
 

@@ -26,6 +26,7 @@ const { requireFormToken } = require('../../../services/formToken');
 const { tooManyNewApplications } = require('../../../services/usageLimits');
 const { monthlyRepaymentFor } = require('../../../utils/offerMath');
 const { isValidDateOfBirth } = require('../../../utils/dateOfBirth');
+const { isCompleteHomeAddress, cleanParts, formatHomeAddress, homeAddressParts } = require('../../../utils/homeAddress');
 
 // Unauthenticated + writes to the DB, so it gets its own tighter limit on
 // top of the global one in server.js. Higher than before since a single
@@ -70,7 +71,7 @@ const uploadFields = (req, res, next) => multerFields(req, res, (err) => {
 });
 
 const parseJsonFields = (req, res, next) => {
-  for (const field of ['selectedCompany', 'selectedOffer']) {
+  for (const field of ['selectedCompany', 'selectedOffer', 'homeAddress']) {
     if (typeof req.body[field] === 'string') {
       try {
         req.body[field] = JSON.parse(req.body[field]);
@@ -167,7 +168,13 @@ router.put(
     body('tradingTime').optional().isString().trim().notEmpty(),
     body('turnover').optional().isString().trim().notEmpty(),
     body('director').optional().isString().trim().notEmpty(),
+    // Only sent by forms from before BF-057 (open in a browser during the
+    // deploy). New forms send homeAddress.
     body('address').optional().isString().trim().notEmpty(),
+    // House number or name, street, town and a UK postcode, all required
+    // (BF-057). Same rule as bounce-funding/src/validation.ts.
+    body('homeAddress').optional().custom(isCompleteHomeAddress)
+      .withMessage('public.applications.invalid_home_address'),
     // A full UK number: +44 then 10 digits ("+44 123" was getting through).
     // Same rule as bounce-funding/src/validation.ts.
     body('phone').optional().isString()
@@ -241,6 +248,16 @@ router.put(
       if (parseInt(stage) >= 4 && !req.body.director && !submission?.director_name) {
         return res.status(422).json({ errors: ['public.applications.director_required'] });
       }
+      // Offers need the full home address (BF-057). Let through: a form from
+      // before BF-057 still sending the one-line address, and applications
+      // saved before it that only have the one line (resumed at Stage 4-6).
+      if (parseInt(stage) >= 4 && !req.body.homeAddress && !req.body.address
+        && !submission?.home_postcode && !submission?.home_address) {
+        return res.status(422).json({ errors: ['public.applications.home_address_required'] });
+      }
+      if (req.body.address && !req.body.homeAddress) {
+        logger.warn(`Application ${applicationRef} saved a one-line home address (form from before BF-057)`);
+      }
 
       // Stage 6 means "documents submitted": it needs a bank statement and the
       // filed accounts, either in this request or already on file.
@@ -264,7 +281,16 @@ router.put(
         setIfPresent(fields, req.body, 'tradingTime', 'trading_time');
         setIfPresent(fields, req.body, 'turnover', 'turnover_range');
         setIfPresent(fields, req.body, 'director', 'director_name');
-        setIfPresent(fields, req.body, 'address', 'home_address');
+        if (req.body.homeAddress) {
+          const parts = cleanParts(req.body.homeAddress);
+          fields.home_house = parts.house;
+          fields.home_street = parts.street;
+          fields.home_town = parts.town;
+          fields.home_postcode = parts.postcode;
+          fields.home_address = formatHomeAddress(parts);
+        } else {
+          setIfPresent(fields, req.body, 'address', 'home_address');
+        }
         setIfPresent(fields, req.body, 'phone', 'phone');
         // Blank never clears one already saved.
         if (req.body.dateOfBirth) fields.date_of_birth = req.body.dateOfBirth;
@@ -436,6 +462,7 @@ router.get('/resume/:resumeToken', resumeLimiter, async (req, res, next) => {
       turnover: submission.turnover_range || '',
       director: submission.director_name || '',
       address: submission.home_address || '',
+      homeAddress: homeAddressParts(submission),
       phone: submission.phone || '',
       dateOfBirth: submission.date_of_birth || '',
       ownsHouse: submission.owns_property === null ? '' : (submission.owns_property ? 'Yes' : 'No'),

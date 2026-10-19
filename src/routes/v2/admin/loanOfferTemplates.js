@@ -11,7 +11,7 @@ const { body, param, validationResult } = require('express-validator');
 const LoanOfferTemplate = require('../../../models/LoanOfferTemplate');
 const logger = require('../../../utils/logger');
 
-const TAG_VARIANTS = ['recommended', 'value', 'fast'];
+const TAG_VARIANTS = ['purple', 'amber', 'blue', 'green'];
 
 const rateValidators = [
   body('apr_value').optional({ nullable: true }).isFloat({ min: 0, max: 100 }),

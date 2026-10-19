@@ -2,6 +2,7 @@ const { Op } = require('sequelize');
 const logger = require('../../utils/logger');
 const FormSubmission = require('../../models/FormSubmission');
 const FormSubmissionReminderEmail = require('../../models/FormSubmissionReminderEmail');
+const LoanOfferTemplate = require('../../models/LoanOfferTemplate');
 const { sendEmail } = require('../email');
 const { resumeLink } = require('../../utils/links');
 const RULES = require('./reminderRules');
@@ -21,6 +22,14 @@ const dueAtFor = (rule, submission, prior, now = new Date()) => {
 
 const firstNameOf = (fullName) => (fullName || '').trim().split(/\s+/)[0] || '';
 
+// "4 funding options", from the offers active in the admin panel (BF-063), so
+// the offers email matches the offers page. No number if none are active.
+const fundingOptionsText = async () => {
+  const count = await LoanOfferTemplate.count({ where: { active: true } });
+  if (!count) return 'funding options';
+  return count === 1 ? '1 funding option' : `${count} funding options`;
+};
+
 const sendReminder = async (submission, rule) => {
   await sendEmail({
     eventKey: rule.eventKey,
@@ -30,6 +39,7 @@ const sendReminder = async (submission, rule) => {
       firstName: firstNameOf(submission.director_name),
       resumeLink: resumeLink(submission.resume_token),
       applicationRef: submission.application_ref,
+      fundingOptions: await fundingOptionsText(),
       privacyPolicyUrl: process.env.PRIVACY_POLICY_URL || 'https://bouncefunding.co.uk/privacy-policy/',
     },
   });

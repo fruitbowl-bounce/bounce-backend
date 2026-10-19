@@ -155,7 +155,7 @@ router.get('/version', (req, res) => {
  */
 router.get('/configs', (req, res) => {
   res.json({
-    session_expire_time: parseInt(process.env.SESSION_EXPIRE_TIME || '3600'),
+    session_expire_time: parseInt(process.env.SESSION_EXPIRE_TIME || '21600'),
     captcha_type: process.env.CAPTCHA_TYPE || 'none',
     captcha_id: process.env.RECAPTCHA_SITE_KEY || null,
     phone_verification_type: process.env.PHONE_VERIFICATION || 'none',

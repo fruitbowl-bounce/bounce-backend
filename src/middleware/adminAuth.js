@@ -3,7 +3,7 @@ const User = require('../models/User');
 const logger = require('../utils/logger');
 
 // Mirrors authorize.js's cookieOwner flow (session lookup, CSRF, sliding
-// expiry/IP/UA check) but swaps the generic Permission-table lookup for a
+// expiry and browser check) but swaps the generic Permission-table lookup for a
 // hardcoded admin/superadmin role check.
 const adminAuth = async (req, res, next) => {
   try {

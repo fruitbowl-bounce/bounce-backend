@@ -12,6 +12,7 @@ const { query, param, validationResult } = require('express-validator');
 const logger = require('../../../utils/logger');
 const { requireFormToken } = require('../../../services/formToken');
 const { dailyCap } = require('../../../services/usageLimits');
+const { partsFromPlace } = require('../../../utils/homeAddress');
 
 const AUTOCOMPLETE_URL = 'https://places.googleapis.com/v1/places:autocomplete';
 const detailsUrl = (placeId) => `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`;
@@ -80,6 +81,10 @@ router.get(
         body: JSON.stringify({
           input: req.query.input,
           includedRegionCodes: ['gb'],
+          // Whole addresses only (BF-057): picking a road or a town left
+          // applications with no house number or postcode. subpremise is
+          // a flat in a building.
+          includedPrimaryTypes: ['street_address', 'premise', 'subpremise'],
           ...(req.query.sessiontoken ? { sessionToken: req.query.sessiontoken } : {}),
         }),
       });
@@ -110,7 +115,7 @@ router.get(
  * @swagger
  * /api/v2/nebryx/public/places/details/{placeId}:
  *   get:
- *     summary: Full formatted address for a place (Google Places API, New)
+ *     summary: Address for a place, whole and in parts (Google Places API, New)
  *     tags: [Public]
  *     parameters:
  *       - in: path
@@ -122,7 +127,7 @@ router.get(
  *         schema: { type: string }
  *     responses:
  *       200:
- *         description: "{ formattedAddress }"
+ *         description: "{ formattedAddress, parts: { house, street, town, postcode } }, parts Google doesn't have are blank"
  */
 router.get(
   '/details/:placeId',
@@ -144,7 +149,7 @@ router.get(
       const upstreamRes = await fetch(url, {
         headers: {
           'X-Goog-Api-Key': process.env.GOOGLE_PLACES_API_KEY,
-          'X-Goog-FieldMask': 'formattedAddress',
+          'X-Goog-FieldMask': 'formattedAddress,addressComponents',
         },
       });
 
@@ -155,7 +160,7 @@ router.get(
       }
 
       const body = await upstreamRes.json();
-      res.json({ formattedAddress: body.formattedAddress ?? '' });
+      res.json({ formattedAddress: body.formattedAddress ?? '', parts: partsFromPlace(body.addressComponents) });
     } catch (error) {
       logger.error('Places details proxy error:', error);
       res.status(502).json({ errors: ['public.places.upstream_unreachable'] });

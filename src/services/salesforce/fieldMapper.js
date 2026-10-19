@@ -1,5 +1,6 @@
 const { monthlyRepaymentFor } = require('../../utils/offerMath');
 const { splitUkAddress } = require('../../utils/ukAddress');
+const { mailingStreet } = require('../../utils/homeAddress');
 // Companies House's own SIC 2007 descriptions (api-enumerations constants.yml).
 const SIC_DESCRIPTIONS = require('../../data/sicCodes.json');
 
@@ -190,7 +191,15 @@ const isApplicantStatusAdvance = (current, next) => {
 // LastName.
 const mapSubmissionToContact = (submission) => {
   const { firstName, lastName } = splitName(submission.director_name);
-  const address = splitUkAddress(submission.home_address);
+  // In parts since BF-057. Older applications only have the one line.
+  const address = submission.home_postcode
+    ? {
+      street: mailingStreet({ house: submission.home_house, street: submission.home_street }),
+      city: submission.home_town,
+      postalCode: submission.home_postcode,
+      country: 'United Kingdom',
+    }
+    : splitUkAddress(submission.home_address);
   return {
     FirstName: firstName,
     LastName: (lastName || submission.email).slice(0, 80),
