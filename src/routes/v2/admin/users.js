@@ -14,6 +14,7 @@ const Label = require('../../../models/Label');
 const Profile = require('../../../models/Profile');
 const { requireSuperadmin } = require('../../../middleware/adminAuth');
 const logger = require('../../../utils/logger');
+const { INVITE_ROLES, sendInvite } = require('../../../services/adminInvites');
 
 const paginate = (page = 1, limit = 25) => {
   const offset = (page - 1) * limit;
@@ -187,6 +188,9 @@ router.get(
 
 router.post(
   '/update',
+  // The Settings page says only superadmins can suspend or change roles,
+  // but these two weren't checking.
+  requireSuperadmin,
   [
     body('uid').notEmpty().withMessage('UID is required'),
     body('state').optional().isString(),
@@ -216,6 +220,11 @@ router.post(
 
       if (targetUser.uid === req.user.uid) {
         return res.status(422).json({ errors: ['admin.user.update_himself'] });
+      }
+
+      // Only accepting the invite (setting a password) activates them.
+      if (targetUser.state === 'invited' && state !== undefined) {
+        return res.status(422).json({ errors: ['admin.user.invite_not_accepted'] });
       }
 
       if (otp === true) {
@@ -251,6 +260,7 @@ router.post(
 
 router.post(
   '/role',
+  requireSuperadmin,
   [
     body('uid').notEmpty().withMessage('UID is required'),
     body('role').notEmpty().withMessage('Role is required'),
@@ -391,5 +401,111 @@ router.delete(
   }
 );
 
-module.exports = router;
+// ─── Invites (superadmins only) ───
+// The invited person gets an email link to set their own password
+// (src/services/adminInvites.js). The account stays "invited", unable to
+// log in, until they do.
 
+/**
+ * @swagger
+ * /api/v2/nebryx/admin/users/invite:
+ *   post:
+ *     summary: Invite someone to the admin panel by email (superadmin only)
+ *     tags: [Admin]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email: { type: string }
+ *               role: { type: string, enum: [superadmin, admin, viewer], default: superadmin }
+ *     responses:
+ *       201: { description: Invite sent }
+ *       422: { description: "admin.user.already_exists, or an invalid email/role" }
+ */
+router.post(
+  '/invite',
+  requireSuperadmin,
+  [
+    body('email').isEmail().withMessage('admin.user.invalid_email'),
+    body('role').optional().isIn(INVITE_ROLES).withMessage('admin.user.invalid_role'),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(422).json({ errors: errors.array().map(e => e.msg) });
+      }
+
+      const email = req.body.email.toLowerCase().trim();
+      const role = req.body.role || 'superadmin';
+      if (await User.findOne({ where: { email } })) {
+        return res.status(422).json({ errors: ['admin.user.already_exists'] });
+      }
+
+      const user = await User.create({ email, role, state: 'invited', level: 0, otp: false });
+      await sendInvite(user, req.user);
+      return res.status(201).json(await user.asJsonForEventApi());
+    } catch (error) {
+      logger.error('Admin invite user error:', error);
+      next(error);
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/v2/nebryx/admin/users/invite/resend:
+ *   post:
+ *     summary: Send a new invite link (the old one stops working; superadmin only)
+ *     tags: [Admin]
+ */
+router.post(
+  '/invite/resend',
+  requireSuperadmin,
+  [body('uid').notEmpty().withMessage('UID is required')],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(422).json({ errors: errors.array().map(e => e.msg) });
+      }
+      const user = await User.findOne({ where: { uid: req.body.uid } });
+      if (!user) return res.status(404).json({ errors: ['admin.user.doesnt_exist'] });
+      if (user.state !== 'invited') return res.status(422).json({ errors: ['admin.user.not_invited'] });
+
+      await sendInvite(user, req.user);
+      return res.json({ message: 'Invite sent' });
+    } catch (error) {
+      logger.error('Admin resend invite error:', error);
+      next(error);
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/v2/nebryx/admin/users/invite/{uid}:
+ *   delete:
+ *     summary: Cancel an invite that hasn't been accepted (removes the account; superadmin only)
+ *     tags: [Admin]
+ */
+router.delete('/invite/:uid', requireSuperadmin, async (req, res, next) => {
+  try {
+    const user = await User.findOne({ where: { uid: req.params.uid } });
+    if (!user) return res.status(404).json({ errors: ['admin.user.doesnt_exist'] });
+    if (user.state !== 'invited') return res.status(422).json({ errors: ['admin.user.not_invited'] });
+
+    await user.destroy();
+    logger.info(`Admin invite for ${user.email} cancelled by ${req.user.email}`);
+    return res.status(204).end();
+  } catch (error) {
+    logger.error('Admin cancel invite error:', error);
+    next(error);
+  }
+});
+
+module.exports = router;

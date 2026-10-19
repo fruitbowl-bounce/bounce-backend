@@ -1,0 +1,19 @@
+<div style="background-color:#F3F4F6;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+  <div style="max-width:480px;margin:0 auto;">
+    {{#if logo}}
+    <div style="text-align:center;margin-bottom:24px;">
+      <img src="{{logo}}" alt="Bounce Funding" style="height:28px;" />
+    </div>
+    {{/if}}
+    <div style="background-color:#ffffff;border-radius:12px;padding:32px 28px;border:1px solid #e5e0f8;">
+      <p style="font-size:15px;color:#374151;margin:0 0 16px;">Hello,</p>
+      <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 16px;">You've been invited to the Bounce Funding admin panel as {{role}}{{#if invitedBy}} by {{invitedBy}}{{/if}}. Click below to accept and set your password.</p>
+      <p style="margin:24px 0;">
+        <a href="{{inviteUrl}}" style="display:inline-block;background-color:#6333E1;color:#ffffff;text-decoration:none;font-size:15px;font-weight:bold;padding:12px 22px;border-radius:8px;">Accept invite</a>
+      </p>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:0 0 8px;">This link works once and expires in {{hours}} hours. If it has expired, ask the person who invited you to send a new one.</p>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:0;">If the button doesn't work, copy this link into your browser:<br><a href="{{inviteUrl}}" style="color:#94a3b8;word-break:break-all;">{{inviteUrl}}</a></p>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin:16px 0 0;">If you weren't expecting this, you can ignore this email.</p>
+    </div>
+  </div>
+</div>

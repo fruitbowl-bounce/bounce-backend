@@ -75,6 +75,15 @@ const User = sequelize.define('users', {
     allowNull: false,
     defaultValue: 'pending',
   },
+  // Admin panel invite (src/services/adminInvites.js). Cleared once accepted.
+  invite_token_digest: {
+    type: DataTypes.STRING(64),
+    allowNull: true,
+  },
+  invite_expires_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
   referral_id: {
     type: DataTypes.BIGINT,
     allowNull: true,

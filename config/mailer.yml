@@ -140,3 +140,11 @@ events:
       en:
         subject: "Salesforce sync failed: {{companyName}} ({{applicationRef}})"
         template_path: ops_salesforce_sync_failed.en.html
+
+  # Admin panel invite (src/services/adminInvites.js).
+  - name: Admin Invite
+    key: admin.invite
+    templates:
+      en:
+        subject: "You're invited to the Bounce Funding admin panel"
+        template_path: admin_invite.en.html
