@@ -313,7 +313,8 @@ router.put(
             || monthlyRepaymentFor(fields.loan_amount ?? submission?.loan_amount, selectedOffer);
           fields.offer_max_amount = selectedOffer.maxAmount || null;
           fields.offer_factor_rate = selectedOffer.factorRate ?? null;
-          fields.offer_tag = selectedOffer.tag || null;
+          // Only a tag with a colour is shown; "No tag" sends none (BF-064).
+          fields.offer_tag = (selectedOffer.tag && selectedOffer.tagVariant) ? selectedOffer.tag : null;
         }
 
         fields.submitted_ip = req.ip;

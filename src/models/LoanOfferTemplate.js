@@ -2,6 +2,7 @@ const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
 const LEGACY_TAG_VARIANTS = { recommended: 'purple', value: 'amber', fast: 'blue' };
+const TAG_COLOURS = ['purple', 'amber', 'blue', 'green'];
 
 // Admin-editable funding options shown on Stage 4 of the public application
 // funnel. `features` is stored as a JSON-encoded string (TEXT column, no
@@ -99,8 +100,11 @@ LoanOfferTemplate.prototype.asJson = function asJson() {
     termMonths: this.term_months,
     term: this.term_label,
     features: this.features,
-    tag: this.tag ?? undefined,
-    tagVariant: this.tag_variant ?? undefined,
+    // "No tag" (no colour) hides the tag from applicants and Salesforce,
+    // even when tag text is still saved (BF-064).
+    ...(this.tag && TAG_COLOURS.includes(this.tag_variant)
+      ? { tag: this.tag, tagVariant: this.tag_variant }
+      : {}),
   };
 };
 

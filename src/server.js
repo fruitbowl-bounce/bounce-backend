@@ -56,8 +56,11 @@ const limiter = rateLimit({
 });
 
 app.use(helmet());
+// CORS_ORIGIN: one address or a comma-separated list
+// (e.g. https://apply.bouncefunding.co.uk). Unset allows any site.
+const corsOrigins = (process.env.CORS_ORIGIN || '').split(',').map((o) => o.trim()).filter(Boolean);
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: corsOrigins.length === 0 ? '*' : corsOrigins,
   credentials: true,
 }));
 app.use(morgan('combined', { stream: { write: (message) => logger.info(message.trim()) } }));
@@ -93,16 +96,19 @@ app.use('/api/v2/nebryx/resource', resourceRoutes);
 app.use('/api/v2/nebryx/public', publicRoutes);
 app.use('/api/v2/nebryx/admin', adminRoutes);
 
-app.use('/api/v2/swagger', swaggerUi.serve);
-app.get('/api/v2/swagger', swaggerUi.setup(swaggerSpec, {
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'Nebryx API Documentation',
-}));
+// API docs are off unless API_DOCS=true (BF-007: hidden on production).
+if (process.env.API_DOCS === 'true') {
+  app.use('/api/v2/swagger', swaggerUi.serve);
+  app.get('/api/v2/swagger', swaggerUi.setup(swaggerSpec, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Nebryx API Documentation',
+  }));
 
-app.get('/api/v2/swagger.json', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(swaggerSpec);
-});
+  app.get('/api/v2/swagger.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
+}
 
 if (process.env.STORAGE_TYPE === 'local') {
   const path = require('path');
